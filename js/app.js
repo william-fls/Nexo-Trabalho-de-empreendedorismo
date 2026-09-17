@@ -148,12 +148,12 @@ function route() {
   var r = parseHash(), segs = r.segs, q = r.q;
   window.scrollTo(0, 0);
   closeModal(); hidePop();
+  if (segs[0] === "profissionais" || segs[0] === "buscar") { location.hash = "#/explorar"; return; }
   if (segs[0] === "app") { showApp(); renderApp(segs.slice(1).join("/") || "dashboard"); }
   else {
     showPublic();
     var v = segs[0] || "home";
-    if (v === "buscar") renderBuscar(q);
-    else if (v === "profissionais") renderProsPage();
+    if (v === "explorar") renderBuscar(q);
     else if (v === "perfil") renderPerfil(segs[1]);
     else if (v === "carrinho") renderCarrinho();
     else if (v === "login") { touchSteps(1); }
@@ -235,11 +235,11 @@ function svcCard(s) {
     '<button class="btn btn-secondary btn-xs" onclick="Nexo.svcModal(\'' + s.id + '\')">Ver</button><button class="btn btn-primary btn-xs" onclick="Nexo.openRequest(\'' + s.id + '\')">Solicitar</button></span></div></div></article>';
 }
 function proCard(p) {
-  var r = ratingOf(p.id), on = (p.disponibilidade === "hoje"), fav = isFav(p.tipo === "autonomo" ? "profissional" : "empresa", p.id);
+  var r = ratingOf(p.id), on = (p.disponibilidade === "hoje"), fk = favKind(p), fav = isFav(fk, p.id);
   return '<article class="pro"><div class="pro-top"><span class="pro-avatar" style="background:' + p.cor + '">' + esc(initials(p.nome)) + "</span>" +
     '<div style="flex:1"><strong>' + esc(p.nome) + "</strong><small>" + esc((p.especialidades || [tipoLabel(p.tipo)])[0]) + (p.verificado ? " · ✓ Verificado" : "") + "</small>" +
     '<span class="avail' + (on ? "" : " off") + '"><i></i>' + esc(dispLabel(p.disponibilidade)) + "</span></div>" +
-    '<button class="fav' + (fav ? " on" : "") + '" onclick="Nexo.fav(\'' + (p.tipo === "autonomo" ? "profissional" : "empresa") + "','" + p.id + "')\" aria-label=\"Favoritar\">" + (fav ? "❤️" : "🤍") + "</button></div>" +
+    '<button class="fav' + (fav ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + p.id + "')\" aria-label=\"Favoritar\">" + (fav ? "❤️" : "🤍") + "</button></div>" +
     '<div class="pro-stats"><span><strong>' + (r.t ? r.m.toFixed(1).replace(".", ",") + "★" : "novo") + "</strong> " + (r.t || "sem avaliações") + "</span><span><strong>" + jobsOf(p) + "</strong> serviços</span><span>" + (p.dist != null ? p.dist + " km" : esc(p.cidade || "")) + "</span></div>" +
     '<p class="muted" style="margin:0;font-size:.88rem">' + esc(p.descricao || "") + "</p>" +
     '<div class="row"><a class="btn btn-secondary btn-sm" href="#/perfil/' + p.id + '">Ver perfil</a><button class="btn btn-primary btn-sm" onclick="Nexo.talk(\'' + p.id + "')\">Conversar</button></div></article>";
@@ -269,7 +269,7 @@ function shopCats(lojaId) {
 }
 /* Catálogo estilo iFood web: rail lateral + seções; "Mais vendidos" = 4 primeiros. */
 function menuRowHTML(id, title, items, u) {
-  return '<div class="menu-sec" id="' + id + '"><h3>' + esc(title) + "</h3>" + '<div class="menu-rowwrap"><button class="row-arrow" onclick="Nexo.rowScroll(this,-1)" aria-label="Anterior">‹</button><div class="menu-row">' + items.map(function (p) { return prodMenuHTML(p, u); }).join("") + '</div><button class="row-arrow" onclick="Nexo.rowScroll(this,1)" aria-label="Próximo">›</button></div></div>';
+  return '<div class="menu-sec" id="' + id + '"><h3>' + esc(title) + "</h3>" + '<div class="menu-row">' + items.map(function (p) { return prodMenuHTML(p, u); }).join("") + "</div></div>";
 }
 function menuHTML(u) {
   var prods = shopProducts(u.id);
@@ -307,6 +307,10 @@ function fbUrl(h) {
   if (/^https?:\/\//i.test(h)) return h;
   return "https://facebook.com/" + h;
 }
+/* Ícone oficial do WhatsApp (SVG inline). */
+function waIcon() {
+  return '<svg class="wa-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
+}
 
 /* ----- card estilo "loja" (home iFood) ----- */
 function storeCard(p) {
@@ -326,6 +330,22 @@ function shopMatch(p) {
   var hay = norm(p.nome + " " + (p.categoriaLoja || "") + " " + (p.descricao || "") + " " + (p.cidade || "") + " " + (p.endereco || ""));
   return hay.indexOf(q) >= 0;
 }
+/* Filtros de gente (valem p/ Lojas e Profissionais): nota (só quem tem avaliação), distância e disponibilidade. */
+function peopleMatch(p) {
+  var r = ratingOf(p.id);
+  if (r.t && r.m < F.rating) return false;
+  if ((p.dist == null ? 99 : p.dist) > F.dist) return false;
+  if (F.avail && p.disponibilidade === "agenda") return false;
+  return true;
+}
+function shopPriceMatch(p) {
+  if (!F.price) return true;
+  var v = p.precoBase || 0;
+  if (!v) return true;
+  if (F.price === "low") return v <= 300;
+  if (F.price === "mid") return v >= 300 && v <= 800;
+  return v >= 800;
+}
 function byRating(a, b) { return ((ratingOf(b.id).m || 0) - (ratingOf(a.id).m || 0)) || ((a.dist || 99) - (b.dist || 99)); }
 
 function renderHome() {
@@ -342,7 +362,7 @@ function renderHome() {
   if (onEl) onEl.textContent = "● " + open.length + (isShop ? " loja(s) aberta(s) agora" : " prestador(es) hoje");
   var eb = $("#storesEyebrow");
   if (eb) eb.textContent = isShop ? "Comércio local" : "Rede verificada";
-  $("#storesTitle").textContent = isShop ? "Lojas em Torres/RS" : "Prestadores em Torres/RS";
+  $("#storesTitle").textContent = isShop ? "Lojas em Vila Aurora" : "Prestadores em Vila Aurora";
   $("#storesCount").textContent = "Toque para ver " + (isShop ? "a vitrine" : "o perfil") + " · " + list.length + " no total";
   $("#homeStores").innerHTML = list.length ? list.map(storeCard).join("")
     : '<div class="empty"><div class="empty-art">🏪</div><h3>Nada por aqui ainda</h3><p class="muted">Publique sua necessidade e receba propostas.</p><button class="btn btn-primary" data-open-request>Publicar necessidade</button></div>';
@@ -354,6 +374,7 @@ function renderBuscar(q) {
   F.q = q.q || ""; F.cats = {};
   if (q.cat) F.cats[q.cat] = true;
   if (q.loc) F.loc = q.loc;
+  $all("#typeSeg [data-tipo]").forEach(function (b) { b.classList.toggle("active", (b.getAttribute("data-tipo") || "todos") === FTIPO); });
   $("#fQ").value = F.q;
   if (q.loc) $("#fLoc").value = q.loc;
   $("#fCats").innerHTML = CATS.map(function (c) {
@@ -378,7 +399,7 @@ function svcMatch(s) {
   if (F.price === "high" && s.preco < 800) return false;
   if (F.avail && ["agenda"].indexOf(s.disp) >= 0) return false;
   var loc = norm(F.loc || "");
-  if (loc && loc.indexOf("torres") < 0) {
+  if (loc && loc.indexOf("aurora") < 0) {
     var where = norm(svcProviders(s).map(function (p) { return p.cidade || ""; }).join(" "));
     if (where.indexOf(norm(loc.split("/")[0]).trim()) < 0 && norm(s.desc).indexOf(norm(loc.split("/")[0]).trim()) < 0) return false;
   }
@@ -402,31 +423,27 @@ function applySearch() {
     if (F.sort === "rating") return svcRating(b).m - svcRating(a).m;
     return (svcRating(b).m * 2 - b.dist * 0.05) - (svcRating(a).m * 2 - a.dist * 0.05);
   });
-  var pros = showSvcs ? providers().filter(proMatch).slice(0, 6) : [];
-  var foundShops = showShops ? shops().filter(shopMatch) : [];
-  $("#searchTitle").textContent = F.q ? "Resultados para “" + F.q + "”" : "Explorar Torres/RS";
+  var pros = showSvcs ? providers().filter(function (p) { return proMatch(p) && peopleMatch(p); }).sort(byRating).slice(0, 6) : [];
+  var foundShops = showShops ? shops().filter(function (p) { return shopMatch(p) && peopleMatch(p) && shopPriceMatch(p); }) : [];
+  $("#searchTitle").textContent = F.q ? "Resultados para “" + F.q + "”" : "Explorar Vila Aurora";
   $("#searchCount").textContent = svcs.length + " serviço(s) · " + foundShops.length + " loja(s)" + (F.q && showSvcs ? " · " + pros.length + " profissional(is)" : "") + " · atualiza automaticamente";
-  $("#activeFilters").textContent = "📍 " + (F.loc || "Torres / RS") + " · até " + F.dist + " km" + (F.date ? " · " + fdateFull(F.date) : "");
+  $("#activeFilters").textContent = "📍 " + (F.loc || "Vila Aurora") + " · até " + F.dist + " km" + (F.date ? " · " + fdateFull(F.date) : "");
   var html = "";
+  var anyCat = Object.keys(F.cats).some(function (k) { return F.cats[k]; });
+  var isShowcase = !F.q && FTIPO === "todos" && !anyCat && F.dist === 15 && +F.rating === 4.5 && !F.price && F.avail;
+  if (isShowcase) {
+    var openAll = providers().concat(shops()).filter(openNow).sort(byRating).slice(0, 6);
+    if (openAll.length) html += "<h3>🔥 Abertas agora</h3><div class='store-list' style='margin-bottom:1.4rem'>" + openAll.map(storeCard).join("") + "</div>";
+    var topRated = db.services.slice().sort(function (a, b) { return svcRating(b).m - svcRating(a).m; }).slice(0, 4);
+    html += "<h3>★ Bem avaliados</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + topRated.map(svcCard).join("") + "</div>";
+  }
   if (svcs.length) html += "<h3>Serviços</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + svcs.map(svcCard).join("") + "</div>";
   if (foundShops.length) html += "<h3>Lojas</h3><div class='store-list' style='margin-bottom:1.4rem'>" + foundShops.map(storeCard).join("") + "</div>";
-  if (pros.length && F.q) html += "<h3>Profissionais e empresas</h3><div class='cards-grid two'>" + pros.map(proCard).join("") + "</div>";
+  if (pros.length) html += "<h3>Profissionais</h3><div class='cards-grid two'>" + pros.map(proCard).join("") + "</div>";
   $("#searchGrid").innerHTML = html;
   var hasAny = svcs.length + foundShops.length > 0;
   $("#searchEmpty").hidden = hasAny;
   $("#searchGrid").style.display = hasAny ? "" : "none";
-}
-
-/* ----- profissionais ----- */
-function renderProsPage() {
-  var sort = $("#proSort").value || "rating";
-  var list = providers().slice();
-  list.sort(function (a, b) {
-    if (sort === "jobs") return jobsOf(b) - jobsOf(a);
-    if (sort === "dist") return (a.dist || 99) - (b.dist || 99);
-    return (ratingOf(b.id).m || 0) - (ratingOf(a.id).m || 0);
-  });
-  $("#prosGrid").innerHTML = list.map(proCard).join("");
 }
 
 /* ----- perfil público ----- */
@@ -434,7 +451,7 @@ var PTAB = null;
 function contactHTML(u) {
   var wa = waLink(u), ig = instaUrl(u.instagram), fb = fbUrl(u.facebook);
   var btns = "";
-  if (wa) btns += '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + wa + '">💬 Chamar no WhatsApp</a>';
+  if (wa) btns += '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + wa + '">' + waIcon() + ' Chamar no WhatsApp</a>';
   if (u.telefone) btns += '<a class="btn btn-secondary" href="tel:' + esc(digits(u.telefone)) + '">📞 ' + esc(u.telefone) + "</a>";
   if (ig) btns += '<a class="btn btn-secondary" target="_blank" rel="noopener" href="' + esc(ig) + '">📸 Instagram</a>';
   if (fb) btns += '<a class="btn btn-secondary" target="_blank" rel="noopener" href="' + esc(fb) + '">👍 Facebook</a>';
@@ -456,11 +473,11 @@ function storeHeroHTML(u, r) {
     '<div class="row"><span class="avail' + (openNow(u) ? "" : " off") + '"><i></i>' + (openNow(u) ? "Aberto agora" : esc(dispLabel(u.disponibilidade))) + "</span><span class='muted' style='font-size:.82rem'>" + esc(u.horario || "") + "</span></div>" +
     '<p class="food-addr">📍 ' + esc(u.endereco || u.cidade || "") + "</p></div>";
 }
-/* Linha do produto estilo item de cardápio (tile sólido + nome + preço + "+"). */
+/* Linha do produto em pé (retrato): foto em cima, nome, preço e "+" embaixo. */
 function prodMenuHTML(p, loja) {
-  return '<div class="menu-item"><span class="mi-thumb" style="background:' + (loja.cor || "#334155") + '">' + esc(initials(p.nome)) + "</span>" +
-    '<div class="mi-info"><strong>' + esc(p.nome) + "</strong><small>" + esc(p.desc || "Sem descrição") + "</small></div>" +
-    '<div class="mi-side"><strong>' + (p.preco > 0 ? BRL(p.preco) : "A combinar") + '</strong><button class="add-btn" onclick="Nexo.cartAdd(\'' + loja.id + "','" + p.id + "')\" aria-label=\"Adicionar à sacola\">+</button></div></div>";
+  return '<div class="menu-card-v"><span class="mi-thumb" style="background:' + (loja.cor || "#334155") + '">' + esc(initials(p.nome)) + "</span>" +
+    "<strong>" + esc(p.nome) + "</strong><small>" + esc(p.desc || "Sem descrição") + "</small>" +
+    '<div class="menu-card-foot"><strong>' + (p.preco > 0 ? BRL(p.preco) : "A combinar") + '</strong><button class="add-btn" onclick="Nexo.cartAdd(\'' + loja.id + "','" + p.id + "')\" aria-label=\"Adicionar à sacola\">+</button></div></div>";
 }
 /* Aba Info: sobre + contato + avaliações juntos (perfil enxuto). */
 function infoHTML(u, revs, isShop) {
@@ -481,7 +498,7 @@ function infoHTML(u, revs, isShop) {
 }
 function renderPerfil(id) {
   var u = userById(id), w = $("#profileWrap");
-  if (!u) { w.innerHTML = '<div class="empty"><div class="empty-art">🙈</div><h3>Perfil não encontrado</h3><a class="btn btn-secondary" href="#/profissionais">Ver profissionais</a></div>'; return; }
+  if (!u) { w.innerHTML = '<div class="empty"><div class="empty-art">🙈</div><h3>Perfil não encontrado</h3><a class="btn btn-secondary" href="#/explorar">Explorar</a></div>'; return; }
   var r = ratingOf(u.id), revs = db.reviews.filter(function (x) { return x.paraId === u.id; });
   var isShop = u.tipo === "loja";
   if (!PTAB || ["sobre", "avaliacoes", "contato"].indexOf(PTAB) >= 0) PTAB = isShop ? "catalogo" : "servicos";
@@ -500,7 +517,7 @@ function renderPerfil(id) {
   }
   var fk = favKind(u), favOn = isFav(fk, u.id);
   var ctaRow = (isShop && waTop)
-    ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + waTop + '">💬 Chamar no WhatsApp</a><button class="btn btn-secondary" onclick="Nexo.openRequest(\'\',\'' + u.id + '\')">Solicitar orçamento</button>'
+    ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + waTop + '">' + waIcon() + ' Chamar no WhatsApp</a>'
     : '<button class="btn btn-primary" onclick="Nexo.openRequest(\'\',\'' + u.id + '\')">Solicitar serviço</button>';
   ctaRow += '<button class="btn btn-secondary" onclick="Nexo.talk(\'' + u.id + "')\">Conversar</button>" +
     '<button class="fav' + (favOn ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + u.id + "')\">" + (favOn ? "❤️ Salvo" : "🤍 Salvar") + "</button>";
@@ -513,7 +530,7 @@ function renderPerfil(id) {
     if (PTAB === "catalogo") {
       var fromP = myProds.filter(function (x) { return x.preco > 0; });
       var minTxt = fromP.length ? "A partir de " + BRL(Math.min.apply(null, fromP.map(function (x) { return x.preco; }))) : "Fale com a loja";
-      foodCta = '<div class="food-cta"><small>' + esc(minTxt) + " · " + esc(u.nome) + "</small>" + (waTop ? '<a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="' + waTop + '">WhatsApp</a>' : "") + '<button class="btn btn-secondary btn-sm" onclick="Nexo.openRequest(\'\',\'' + u.id + '\')">Solicitar</button></div>';
+      foodCta = '<div class="food-cta"><small>' + esc(minTxt) + " · " + esc(u.nome) + "</small>" + (waTop ? '<a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="' + waTop + '">WhatsApp</a>' : "") + '<a class="btn btn-secondary btn-sm" href="#/carrinho">🛒 Sacola</a></div>';
     }
   } else {
     heroShell = '<div class="profile-hero"><div class="profile-cover ' + coverClass(u) + '"></div><div class="profile-body">' +
@@ -828,7 +845,7 @@ function reqFormHTML(preSvc) {
     db.services.map(function (s) { return '<option value="' + s.id + '"' + (s.id === preSvc ? " selected" : "") + ">" + esc(s.titulo) + " — " + esc(s.precoLabel) + "</option>"; }).join("") + "</select></label>" +
     '<label class="field"><span>Título *</span><input id="rqTitulo" placeholder="Ex.: Instalar 8 câmeras na loja"></label></div>' +
     '<label class="field"><span>Descrição detalhada *</span><textarea id="rqDesc" class="input" rows="3" placeholder="O que precisa, medidas, pontos, acessos..."></textarea></label>' +
-    '<div class="grid2"><label class="field"><span>Local *</span><input id="rqLocal" value="Torres/RS · "></label><label class="field"><span>Cidade *</span><input id="rqCity" value="Torres / RS"></label></div>' +
+    '<div class="grid2"><label class="field"><span>Local *</span><input id="rqLocal" value="Vila Aurora · "></label><label class="field"><span>Cidade *</span><input id="rqCity" value="Vila Aurora"></label></div>' +
     '<div class="grid2"><label class="field"><span>Data desejada *</span><input id="rqData" type="date" min="' + todayISO() + '" value="' + NexoStore.dayPlus(7) + '"></label><label class="field"><span>Horário</span><input id="rqHora" type="time" value="09:00"></label></div>' +
     '<div class="grid2"><label class="field"><span>Quantidade</span><input id="rqQtd" type="number" min="1" value="1"></label><label class="field"><span>Orçamento R$ (0 = aberto)</span><input id="rqOrc" type="number" min="0" value="0"></label></div>' +
     '<label class="field"><span>Observações</span><textarea id="rqObs" class="input" rows="2"></textarea></label>' +
@@ -943,7 +960,7 @@ function vFav() {
     (f.length
       ? (svcs.length ? "<h3>Serviços</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + svcs.map(svcCard).join("") + "</div>" : "") +
         (pros.length ? "<h3>Profissionais e empresas</h3><div class='cards-grid two'>" + pros.map(proCard).join("") + "</div>" : "")
-      : '<div class="empty"><div class="empty-art">🤍</div><h3>Nada salvo ainda</h3><p class="muted">Toque em 🤍 nos serviços e profissionais.</p><a class="btn btn-primary" href="#/buscar">Explorar catálogo</a></div>');
+      : '<div class="empty"><div class="empty-art">🤍</div><h3>Nada salvo ainda</h3><p class="muted">Toque em 🤍 nos serviços e profissionais.</p><a class="btn btn-primary" href="#/explorar">Explorar catálogo</a></div>');
 }
 
 /* ----- categorias do catálogo (dashboard da loja) ----- */
@@ -1000,13 +1017,23 @@ function vPedidos() {
         (act ? '<div class="row">' + act + "</div>" : "") + "</div>";
     }).join("") + "</div>" : '<div class="empty"><div class="empty-art">🧾</div><h3>Nenhum pedido ainda</h3><p class="muted">Compartilhe sua vitrine para vender.</p><a class="btn btn-primary" href="#/perfil/' + u.id + '">Ver minha vitrine</a></div>');
 }
-/* ----- sacola (uma loja por vez) ----- */
+/* ----- sacola multi-loja (agrupada por loja) ----- */
 function cartItems() {
-  var cart = db.cart || { lojaId: null, items: [] };
-  return (cart.items || []).map(function (it) {
+  var cart = db.cart || { items: [] };
+  return ((cart.items || [])).map(function (it) {
     var p = (db.products || []).filter(function (x) { return x.id === it.prodId; })[0];
     return p ? { p: p, qtd: it.qtd } : null;
   }).filter(Boolean);
+}
+function cartGroups() {
+  var groups = [], seen = {};
+  cartItems().forEach(function (x) {
+    var id = x.p.lojaId;
+    if (!seen[id]) { seen[id] = { id: id, loja: userById(id) || { nome: "Loja", cor: "#334155" }, items: [], total: 0 }; groups.push(seen[id]); }
+    seen[id].items.push(x);
+    seen[id].total += x.p.preco * x.qtd;
+  });
+  return groups;
 }
 function cartTotal() { return cartItems().reduce(function (a, x) { return a + x.p.preco * x.qtd; }, 0); }
 function paintCartBadge() {
@@ -1026,31 +1053,32 @@ function prodFormHTML(p) {
 }
 function renderCarrinho() {
   var w = $("#cartWrap");
-  var cart = db.cart || { lojaId: null, items: [] };
-  var loja = cart.lojaId ? userById(cart.lojaId) : null;
-  var items = cartItems();
-  if (!items.length) {
-    w.innerHTML = '<div class="empty"><div class="empty-art">🛒</div><h3>Sacola vazia</h3><p class="muted">Explore as lojas e toque em + para adicionar.</p><a class="btn btn-primary" href="#/">Ver lojas</a></div>';
+  var groups = cartGroups();
+  if (!groups.length) {
+    w.innerHTML = '<div class="empty"><div class="empty-art">🛒</div><h3>Sacola vazia</h3><p class="muted">Explore as lojas e toque em + para adicionar. Vale misturar lojas!</p><a class="btn btn-primary" href="#/">Ver lojas</a></div>';
     return;
   }
   var total = cartTotal();
   var meU = me();
-  w.innerHTML = "<p class='muted'>1 · Confira a sacola → 2 · Seus dados → 3 · Pagar. Simples assim.</p>" +
-    '<div class="panel"><div class="row"><strong style="font-size:1.05rem">' + esc(loja ? loja.nome : "Sacola") + '</strong><span class="muted" style="margin-left:auto;font-size:.82rem">' + items.length + " item(ns)</span></div>" +
-    '<div class="store-list" style="margin-top:.8rem">' + items.map(function (x) {
-      return '<div class="prod"><span class="mi-thumb" style="background:' + ((loja && loja.cor) || "#334155") + ';width:44px;height:44px;font-size:.9rem">' + esc(initials(x.p.nome)) + "</span>" +
-        '<div class="prod-info"><strong>' + esc(x.p.nome) + "</strong><small>" + BRL(x.p.preco) + " cada</small></div>" +
-        '<div class="qty"><button onclick="Nexo.cartQty(\'' + x.p.id + "',-1)\">−</button><strong>" + x.qtd + "</strong>" + '<button onclick="Nexo.cartQty(\'' + x.p.id + "',1)\">+</button></div>" +
-        '<button class="fav" onclick="Nexo.cartDel(\'' + x.p.id + "')\" aria-label=\"Remover\">✕</button></div>";
-    }).join("") + "</div>" +
-    '<div class="row" style="justify-content:space-between;margin-top:.8rem"><span class="muted">Total</span><strong style="font-size:1.3rem">' + BRL(total) + "</strong></div></div>" +
+  function rowHTML(x, cor) {
+    return '<div class="prod"><span class="mi-thumb" style="background:' + cor + ';width:44px;height:44px;font-size:.9rem">' + esc(initials(x.p.nome)) + "</span>" +
+      '<div class="prod-info"><strong>' + esc(x.p.nome) + "</strong><small>" + BRL(x.p.preco) + " cada</small></div>" +
+      '<div class="qty"><button onclick="Nexo.cartQty(\'' + x.p.id + "',-1)\">−</button><strong>" + x.qtd + "</strong>" + '<button onclick="Nexo.cartQty(\'' + x.p.id + "',1)\">+</button></div>" +
+      '<button class="fav" onclick="Nexo.cartDel(\'' + x.p.id + "')\" aria-label=\"Remover\">✕</button></div>";
+  }
+  w.innerHTML = "<p class='muted'>1 · Confira a sacola → 2 · Seus dados → 3 · Pagar. Cada loja recebe seu pedido.</p>" +
+    groups.map(function (g) {
+      return '<div class="panel"><div class="row"><strong style="font-size:1.05rem">' + esc(g.loja.nome) + '</strong><span class="muted" style="margin-left:auto;font-size:.82rem">' + BRL(g.total) + "</span></div>" +
+        '<div class="store-list" style="margin-top:.8rem">' + g.items.map(function (x) { return rowHTML(x, g.loja.cor || "#334155"); }).join("") + "</div></div>";
+    }).join("") +
+    '<div class="panel"><div class="row" style="justify-content:space-between"><span class="muted">Total geral</span><strong style="font-size:1.3rem">' + BRL(total) + "</strong></div></div>" +
     '<div class="panel"><h3>Seus dados</h3><div class="grid2"><label class="field"><span>Nome *</span><input id="ctNome" autocomplete="name" value="' + esc(meU ? meU.nome : "") + '"></label>' +
     '<label class="field"><span>WhatsApp *</span><input id="ctTel" placeholder="(51) 99999-0000" autocomplete="tel" value="' + esc(meU ? (meU.whatsapp || meU.telefone || "") : "") + '"></label></div>' +
     '<label class="field"><span>Endereço p/ entrega ou retirada</span><input id="ctAddr" placeholder="Rua, número — bairro"></label></div>' +
     '<div class="panel"><h3>Pagamento</h3><label class="check"><input type="radio" name="ctPay" value="pix" checked> Pix (aprovação demo)</label>' +
     '<label class="check"><input type="radio" name="ctPay" value="card"> Cartão via Nexo Pay (demo)</label>' +
     '<label class="check"><input type="radio" name="ctPay" value="zap"> Combinar no WhatsApp</label>' +
-    '<p class="muted" style="font-size:.8rem">Demonstração: nenhum valor é cobrado de verdade. O pedido é registrado e a loja é avisada.</p>' +
+    '<p class="muted" style="font-size:.8rem">Demonstração: nenhum valor é cobrado de verdade. Cada loja recebe o seu pedido.</p>' +
     '<div class="row"><button class="btn btn-secondary" onclick="Nexo.cartClear()">Esvaziar</button><button class="btn btn-primary btn-lg grow" onclick="Nexo.checkout()">Finalizar · ' + BRL(total) + "</button></div></div>";
 }
 
@@ -1163,8 +1191,7 @@ function refresh() {
   if (segs[0] === "app") { renderApp(segs[1] || "dashboard", segs[2] || null); return; }
   var v = segs[0] || "home";
   if (!segs.length || v === "home") renderHome();
-  else if (v === "buscar") applySearch();
-  else if (v === "profissionais") renderProsPage();
+  else if (v === "explorar") applySearch();
   else if (v === "perfil") renderPerfil(segs[1]);
   else if (v === "carrinho") renderCarrinho();
 }
@@ -1216,10 +1243,6 @@ window.Nexo = {
       for (var i = 0; i < sibs.length; i++) sibs[i].classList.toggle("active", sibs[i] === btn);
     }
   },
-  rowScroll: function (btn, dir) {
-    var box = btn && btn.parentNode ? btn.parentNode.querySelector(".menu-row") : null;
-    if (box && box.scrollBy) box.scrollBy({ left: dir * 240, behavior: "smooth" });
-  },
   reqSeg: function (s) { REQSEG = s; vReqList(curRoute() === "solicitacoes"); },
   agView: function (v) { AGV = v; vAgenda(); paintSide("agenda"); },
   fav: function (tipo, refId) {
@@ -1243,13 +1266,6 @@ window.Nexo = {
         return '<div class="row"><span class="pro-avatar" style="background:' + p.cor + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(p.nome)) + "</span><div style='flex:1'><strong>" + esc(p.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(pr.m, pr.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + p.id + "'>Ver perfil</a></div>";
       }).join("") +
       '<div class="row"><button class="btn btn-primary btn-block" onclick="Nexo.openRequest(\'' + s.id + "')\">Solicitar este serviço</button></div>");
-  },
-  askProduct: function (lojaId, prodId) {
-    var loja = userById(lojaId) || {}, p = (db.products || []).filter(function (x) { return x.id === prodId; })[0] || {};
-    Nexo.openRequest("", lojaId);
-    var t = $("#rqTitulo"), d = $("#rqDesc");
-    if (t) t.value = "Orçamento: " + (p.nome || loja.nome || "");
-    if (d) d.value = "Olá! Vi na vitrine " + (loja.nome || "") + " e quero orçamento de: " + (p.nome || "") + (p.preco > 0 ? " (" + BRL(p.preco) + ")" : "") + (p.desc ? " — " + p.desc : "") + ".";
   },
   openRequest: function (preSvc, preProv) {
     if (needLogin("Crie sua conta para publicar uma necessidade.")) return;
@@ -1431,15 +1447,11 @@ window.Nexo = {
     vProdutos();
   },
   cartAdd: function (lojaId, prodId) {
-    if (!db.cart) db.cart = { lojaId: null, items: [] };
-    if (db.cart.lojaId && db.cart.lojaId !== lojaId) {
-      if (!confirm("Sua sacola é de outra loja. Trocar de loja e esvaziar a sacola?")) return;
-      db.cart = { lojaId: null, items: [] };
-    }
-    db.cart.lojaId = lojaId;
+    if (!db.cart) db.cart = { items: [] };
+    if (!db.cart.items) db.cart.items = [];
     var it = db.cart.items.filter(function (x) { return x.prodId === prodId; })[0];
     if (it) it.qtd++;
-    else db.cart.items.push({ prodId: prodId, qtd: 1 });
+    else db.cart.items.push({ prodId: prodId, lojaId: lojaId, qtd: 1 });
     save(); paintCartBadge(); refresh();
     var p = (db.products || []).filter(function (x) { return x.id === prodId; })[0] || {};
     toast("Na sacola: " + (p.nome || "item") + " 🛒");
@@ -1450,50 +1462,51 @@ window.Nexo = {
     if (!it) return;
     it.qtd += d;
     if (it.qtd <= 0) db.cart.items = items.filter(function (x) { return x !== it; });
-    if (!db.cart.items.length) db.cart.lojaId = null;
     save(); paintCartBadge(); renderCarrinho();
   },
   cartDel: function (prodId) {
     db.cart.items = (db.cart.items || []).filter(function (x) { return x.prodId !== prodId; });
-    if (!db.cart.items.length) db.cart.lojaId = null;
     save(); paintCartBadge(); renderCarrinho();
   },
   cartClear: function () {
-    db.cart = { lojaId: null, items: [] };
+    db.cart = { items: [] };
     save(); paintCartBadge(); renderCarrinho();
   },
   checkout: function () {
-    var items = cartItems();
-    if (!items.length) return;
-    var cart = db.cart || {};
+    var groups = cartGroups();
+    if (!groups.length) return;
     var pay = "pix", picked = document.querySelector('input[name="ctPay"]:checked');
     if (picked) pay = picked.value;
     var buyer = { nome: $("#ctNome").value.trim(), tel: $("#ctTel").value.trim(), addr: $("#ctAddr").value.trim() };
     if (buyer.nome.length < 2) { toast("Informe seu nome."); return; }
     if (!buyer.tel) { toast("Informe seu telefone/WhatsApp."); return; }
-    var order = {
-      id: NexoStore.uid("o"), lojaId: cart.lojaId,
-      items: items.map(function (x) { return { nome: x.p.nome, preco: x.p.preco, qtd: x.qtd }; }),
-      total: cartTotal(), pay: pay, buyer: buyer,
-      status: pay === "zap" ? "enviado" : "aguardando_pagamento",
-      criadoEm: new Date().toISOString()
-    };
     if (!db.orders) db.orders = [];
+    var orders = groups.map(function (g) {
+      return {
+        id: NexoStore.uid("o"), lojaId: g.id,
+        items: g.items.map(function (x) { return { nome: x.p.nome, preco: x.p.preco, qtd: x.qtd }; }),
+        total: g.total, pay: pay, buyer: buyer,
+        status: pay === "zap" ? "enviado" : "aguardando_pagamento",
+        criadoEm: new Date().toISOString()
+      };
+    });
     if (pay === "zap") {
-      db.orders.push(order);
-      db.cart = { lojaId: null, items: [] };
+      orders.forEach(function (order) {
+        db.orders.push(order);
+        var loja = userById(order.lojaId) || {};
+        notify(order.lojaId, "pedido", "🛒 Pedido novo", buyer.nome + " · " + BRL(order.total) + " (via WhatsApp).", "#/app/dashboard");
+        var lines = order.items.map(function (it) { return "• " + it.qtd + "x " + it.nome + " — " + BRL(it.preco * it.qtd); });
+        var msg = "Olá " + (loja.nome || "") + "! Meu pedido Nexo:\n" + lines.join("\n") + "\nTotal: " + BRL(order.total) + "\n— " + buyer.nome + (buyer.addr ? " · " + buyer.addr : "");
+        var d = digits(loja.whatsapp || loja.telefone);
+        if (d) window.open("https://wa.me/" + (d.length <= 11 ? "55" + d : d) + "?text=" + encodeURIComponent(msg), "_blank");
+      });
+      db.cart = { items: [] };
       save(); paintCartBadge();
-      notify(order.lojaId, "pedido", "🛒 Pedido novo", buyer.nome + " · " + BRL(order.total) + " (via WhatsApp).", "#/app/dashboard");
-      var loja = userById(order.lojaId) || {};
-      var lines = order.items.map(function (it) { return "• " + it.qtd + "x " + it.nome + " — " + BRL(it.preco * it.qtd); });
-      var msg = "Olá " + (loja.nome || "") + "! Meu pedido Nexo: \n" + lines.join("\n") + "\nTotal: " + BRL(order.total) + "\n— " + buyer.nome + (buyer.addr ? " · " + buyer.addr : "");
-      var d = digits(loja.whatsapp || loja.telefone);
-      if (d) window.open("https://wa.me/" + (d.length <= 11 ? "55" + d : d) + "?text=" + encodeURIComponent(msg), "_blank");
-      toast("Pedido enviado! 🛒");
+      toast(orders.length > 1 ? "Pedidos enviados às lojas! 🛒" : "Pedido enviado! 🛒");
       location.hash = "#/";
       return;
     }
-    NexoPay.checkout(order);
+    NexoPay.checkoutMulti(orders);
   },
   orderStatus: function (id, st) {
     var o = (db.orders || []).filter(function (x) { return x.id === id; })[0];
@@ -1550,26 +1563,34 @@ window.Nexo = {
    servidor, webhook de confirmação e TLS. Nunca exponha segredos no front.
    ================================================================ */
 window.NexoPay = {
-  checkout: function (order) {
-    var isPix = order.pay === "pix";
+  checkoutMulti: function (orders) {
+    var isPix = orders[0].pay === "pix";
+    var total = 0, names = [];
+    orders.forEach(function (o) {
+      total += o.total;
+      var l = userById(o.lojaId) || {};
+      if (l.nome) names.push(l.nome);
+    });
     openModal("Pagamento Nexo Pay",
-      "<p class='muted' style='margin:0'>Pedido <strong>" + esc(order.id) + "</strong> · <strong>" + BRL(order.total) + "</strong> · " + (isPix ? "Pix" : "Cartão") + "</p>" +
+      "<p class='muted' style='margin:0'><strong>" + BRL(total) + "</strong> · " + orders.length + (orders.length > 1 ? " lojas" : " loja") + " (" + esc(names.join(", ")) + ") · " + (isPix ? "Pix" : "Cartão") + "</p>" +
       (isPix
         ? '<div class="panel" style="text-align:center;margin:0"><div style="font-size:2.6rem">▦</div><p class="muted" style="font-size:.82rem;margin:0">QR demo — na versão real o código aparece aqui.</p></div>'
         : '<p class="muted">Cartão final 0000 (demo) · sem cobrança real.</p>') +
       '<div class="row"><span class="muted" id="paySpin">⏳ Aguardando aprovação...</span></div>' +
       '<div class="row"><button class="btn btn-secondary" onclick="Nexo.close()">Cancelar</button></div>');
     setTimeout(function () {
-      order.status = "pago";
       if (!db.orders) db.orders = [];
-      db.orders.push(order);
-      var n = 0;
-      order.items.forEach(function (it) { n += it.qtd; });
-      notify(order.lojaId, "pedido", "🛒 Pedido pago!", order.buyer.nome + " · " + n + " item(ns) · " + BRL(order.total) + ".", "#/app/dashboard");
-      db.cart = { lojaId: null, items: [] };
+      orders.forEach(function (order) {
+        order.status = "pago";
+        db.orders.push(order);
+        var n = 0;
+        order.items.forEach(function (it) { n += it.qtd; });
+        notify(order.lojaId, "pedido", "🛒 Pedido pago!", order.buyer.nome + " · " + n + " item(ns) · " + BRL(order.total) + ".", "#/app/dashboard");
+      });
+      db.cart = { items: [] };
       save(); closeModal(); paintCartBadge();
-      openModal("Pedido confirmado! 🎉",
-        "<p>O pagamento foi aprovado (demonstração, sem cobrança real). A loja já foi avisada.</p>" +
+      openModal("Pedidos confirmados! 🎉",
+        "<p>Pagamento aprovado (demonstração, sem cobrança real). Cada loja recebeu o seu pedido.</p>" +
         '<div class="row"><a class="btn btn-secondary grow" href="#/app/mensagens">Acompanhar no chat</a><a class="btn btn-primary grow" href="#/">Voltar à vitrine</a></div>');
     }, 1600);
   }
@@ -1636,12 +1657,12 @@ function bindChrome() {
   if (hs) hs.addEventListener("submit", function (e) {
     e.preventDefault();
     var q = $("#homeQ") ? $("#homeQ").value.trim() : "";
-    var loc = $("#homeLoc") ? $("#homeLoc").value.trim() : "Torres / RS";
-    location.hash = "#/buscar?q=" + encodeURIComponent(q) + "&loc=" + encodeURIComponent(loc);
+    var loc = $("#homeLoc") ? $("#homeLoc").value.trim() : "Vila Aurora";
+    location.hash = "#/explorar?q=" + encodeURIComponent(q) + "&loc=" + encodeURIComponent(loc);
   });
   var gs = $("#globalSearch");
   if (gs) gs.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && gs.value.trim()) location.hash = "#/buscar?q=" + encodeURIComponent(gs.value.trim());
+    if (e.key === "Enter" && gs.value.trim()) location.hash = "#/explorar?q=" + encodeURIComponent(gs.value.trim());
   });
   /* buscar: filtros vivos */
   ["fQ", "fLoc", "fPrice", "fDate"].forEach(function (id) {
@@ -1666,8 +1687,8 @@ function bindChrome() {
     });
   });
   function clearF() {
-    F = { q: "", cats: {}, loc: "Torres / RS", dist: 50, rating: 0, price: "", date: "", avail: false, sort: F.sort };
-    $("#fQ").value = ""; $("#fLoc").value = "Torres / RS";
+    F = { q: "", cats: {}, loc: "Vila Aurora", dist: 50, rating: 0, price: "", date: "", avail: false, sort: F.sort };
+    $("#fQ").value = ""; $("#fLoc").value = "Vila Aurora";
     $("#fDist").value = 50; $("#fRating").value = "0"; $("#fPrice").value = ""; $("#fDate").value = "";
     $("#fAvail").checked = false;
     $all("#fCats input").forEach(function (c) { c.checked = false; });
@@ -1675,7 +1696,6 @@ function bindChrome() {
   }
   $("#clearFilters").addEventListener("click", clearF);
   $("#emptyClear").addEventListener("click", clearF);
-  $("#proSort").addEventListener("change", renderProsPage);
 }
 
 function init() {

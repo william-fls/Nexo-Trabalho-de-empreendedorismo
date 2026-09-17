@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=17">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231D4ED8'/%3E%3Cpath d='M10 22V10l12 12V10' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -24,8 +24,7 @@
       <span class="brand-tag">B2B</span>
     </a>
     <nav class="nav-desktop" aria-label="Navegação principal">
-      <a href="#/buscar" data-nav="buscar">Encontrar serviços</a>
-      <a href="#/profissionais" data-nav="profissionais">Profissionais</a>
+      <a href="#/explorar" data-nav="explorar">Explorar</a>
       <a href="#/como-funciona" data-nav="como-funciona">Como funciona</a>
       <a href="#/para-empresas" data-nav="para-empresas">Para empresas</a>
     </nav>
@@ -48,8 +47,7 @@
     <button class="icon-btn" id="closeMenu" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <nav class="drawer-nav">
-    <a href="#/buscar">Encontrar serviços</a>
-    <a href="#/profissionais">Profissionais</a>
+    <a href="#/explorar">Explorar</a>
     <a href="#/como-funciona">Como funciona</a>
     <a href="#/para-empresas">Para empresas</a>
   </nav>
@@ -69,7 +67,7 @@
     <!-- HERO -->
     <div class="hero store-hero">
       <div class="container">
-        <p class="eyebrow light">📍 Torres / Litoral Norte · RS</p>
+        <p class="eyebrow light">📍 Vila Aurora · cidade demo</p>
         <h1 class="light">O que você precisa hoje?</h1>
         <form class="store-search" id="homeSearch" role="search" aria-label="Buscar prestadores">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -77,14 +75,14 @@
           <button class="btn btn-primary" type="submit">Buscar</button>
         </form>
         <div class="doors" id="homeDoors"></div>
-        <div class="row"><span class="badge" id="homeOpenNow">Rede verificada pela Nexo</span><a class="link light" href="#/buscar">Busca avançada →</a></div>
+        <div class="row"><span class="badge" id="homeOpenNow">Rede verificada pela Nexo</span><a class="link light" href="#/explorar">Busca avançada →</a></div>
       </div>
     </div>
 
     <!-- LOJAS -->
     <div class="section alt">
       <div class="container">
-        <div class="section-head"><div><p class="eyebrow" id="storesEyebrow">Comércio local</p><h2 id="storesTitle">Lojas em Torres/RS</h2><p class="muted" id="storesCount"></p></div><a class="btn btn-ghost btn-sm" href="#/buscar">Ver tudo →</a></div>
+        <div class="section-head"><div><p class="eyebrow" id="storesEyebrow">Comércio local</p><h2 id="storesTitle">Lojas em Vila Aurora</h2><p class="muted" id="storesCount"></p></div><a class="btn btn-ghost btn-sm" href="#/explorar">Ver tudo →</a></div>
         <div class="store-list" id="homeStores"></div>
       </div>
     </div>
@@ -95,7 +93,7 @@
         <div><strong>1 · Peça</strong><span>Publique ou escolha na vitrine</span></div>
         <div><strong>2 · Compare</strong><span>Propostas, preços e avaliações</span></div>
         <div><strong>3 · Receba</strong><span>Agende, acompanhe e avalie</span></div>
-        <a class="btn btn-primary" href="#/buscar">Começar</a>
+        <a class="btn btn-primary" href="#/explorar">Começar</a>
       </div>
     </div>
 
@@ -115,9 +113,9 @@
         </div>
         <div class="need-visual" aria-label="Exemplo de solicitação e propostas">
           <div class="req-card">
-            <div class="req-head"><span class="req-avatar">PM</span><div><strong>Padaria Pão &amp; Cia</strong><small>Publicado há 2h · Torres/RS</small></div><span class="badge warn">3 propostas</span></div>
+            <div class="req-head"><span class="req-avatar">PM</span><div><strong>Padaria Pão &amp; Cia</strong><small>Publicado há 2h · Vila Aurora</small></div><span class="badge warn">3 propostas</span></div>
             <p>“Preciso instalar <strong>8 câmeras</strong> em minha loja.”</p>
-            <div class="req-meta"><span>📍 Torres/RS</span><span>🗓 até 20/09</span><span>💰 Orçamento aberto</span></div>
+            <div class="req-meta"><span>📍 Vila Aurora</span><span>🗓 até 20/09</span><span>💰 Orçamento aberto</span></div>
           </div>
           <div class="prop-feed">
             <div class="prop"><span class="mock-avatar">JS</span><div><strong>João Segurança</strong><small>⭐ 4,9 · 212 serviços</small></div><div class="prop-right"><strong>R$ 800</strong><small>Disponível dia 17</small></div></div>
@@ -134,39 +132,35 @@
     </div>
   </section>
 
-  <!-- BUSCAR -->
-  <section class="view" id="view-buscar" hidden>
+  <!-- EXPLORAR -->
+  <section class="view" id="view-explorar" hidden>
     <div class="container page-head">
-      <div><p class="eyebrow">Encontrar serviços</p><h1 id="searchTitle">Resultados para “todos os serviços”</h1><p class="muted" id="searchCount"></p></div>
+      <div><p class="eyebrow">Explorar</p><h1 id="searchTitle">Explorar Vila Aurora</h1><p class="muted" id="searchCount"></p></div>
       <button class="btn btn-primary" data-open-request>＋ Publicar necessidade</button>
     </div>
-    <div class="container search-layout">
-      <aside class="filters" aria-label="Filtros">
-        <div class="filters-head"><h3>Filtros</h3><button class="link" id="clearFilters">Limpar</button></div>
-        <label class="field"><span>Busca</span><input id="fQ" type="search" placeholder="O que você precisa?"></label>
-        <div class="field"><span>Categoria</span><div class="cat-checks" id="fCats"></div></div>
-        <label class="field"><span>Localização</span><input id="fLoc" value="Torres / RS"></label>
-        <label class="field"><span>Distância</span><input id="fDist" type="range" min="2" max="50" value="15"><output id="fDistOut">até 15 km</output></label>
-        <label class="field"><span>Avaliação mínima</span><select id="fRating"><option value="0">Qualquer</option><option value="4.5" selected>4,5+</option><option value="4.8">4,8+</option><option value="4.9">4,9</option></select></label>
-        <label class="field"><span>Faixa de preço</span><select id="fPrice"><option value="">Todas</option><option value="low">Até R$ 300</option><option value="mid">R$ 300 – R$ 800</option><option value="high">R$ 800+</option></select></label>
-        <label class="field"><span>Data</span><input id="fDate" type="date" value="2026-09-20"></label>
-        <label class="switch"><input type="checkbox" id="fAvail" checked><span></span> Disponível esta semana</label>
-      </aside>
-      <div>
-        <div class="seg" role="tablist" id="typeSeg" aria-label="Tipo" style="margin-bottom:.7rem"><button class="active" data-tipo="todos">Tudo</button><button data-tipo="servicos">🛠 Serviços</button><button data-tipo="lojas">🏪 Lojas</button></div>
-        <div class="toolbar"><div class="seg" role="tablist"><button class="active" data-sort="relevance">Relevância</button><button data-sort="price">Menor preço</button><button data-sort="rating">Melhor avaliados</button></div><span class="muted" id="activeFilters"></span></div>
-        <div class="cards-grid two" id="searchGrid"></div>
-        <div class="empty" id="searchEmpty" hidden><div class="empty-art">🔍</div><h3>Nenhum serviço encontrado</h3><p>Tente ampliar a distância ou publicar sua necessidade para receber propostas.</p><div class="row center"><button class="btn btn-secondary" id="emptyClear">Limpar filtros</button><button class="btn btn-primary" data-open-request>Publicar necessidade</button></div></div>
+    <div class="container explore-top">
+      <div class="store-search" role="search" aria-label="Buscar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="fQ" type="search" placeholder="O que você precisa?" aria-label="Buscar" autocomplete="off">
       </div>
+      <div class="seg" role="tablist" id="typeSeg" aria-label="Tipo"><button class="active" data-tipo="todos">Tudo</button><button data-tipo="servicos">🛠 Serviços</button><button data-tipo="lojas">🏪 Lojas</button></div>
+      <details class="filters-bar">
+        <summary>Filtros avançados</summary>
+        <div class="filters-grid">
+          <div class="field"><span>Categoria (serviços)</span><div class="cat-checks cat-inline" id="fCats"></div></div>
+          <label class="field"><span>Localização</span><input id="fLoc" value="Vila Aurora"></label>
+          <label class="field"><span>Distância</span><input id="fDist" type="range" min="2" max="50" value="15"><output id="fDistOut">até 15 km</output></label>
+          <label class="field"><span>Avaliação mínima</span><select id="fRating"><option value="0">Qualquer</option><option value="4.5" selected>4,5+</option><option value="4.8">4,8+</option><option value="4.9">4,9</option></select></label>
+          <label class="field"><span>Faixa de preço</span><select id="fPrice"><option value="">Todas</option><option value="low">Até R$ 300</option><option value="mid">R$ 300 – R$ 800</option><option value="high">R$ 800+</option></select></label>
+          <label class="field"><span>Data</span><input id="fDate" type="date" value="2026-09-20"></label>
+          <label class="switch"><input type="checkbox" id="fAvail" checked><span></span> Disponível esta semana</label>
+          <div class="row" style="justify-content:flex-end"><button class="link" id="clearFilters">Limpar filtros</button></div>
+        </div>
+      </details>
+      <div class="toolbar"><div class="seg" role="tablist"><button class="active" data-sort="relevance">Relevância</button><button data-sort="price">Menor preço</button><button data-sort="rating">Melhor avaliados</button></div><span class="muted" id="activeFilters"></span></div>
+      <div id="searchGrid"></div>
+      <div class="empty" id="searchEmpty" hidden><div class="empty-art">🔍</div><h3>Nenhum serviço encontrado</h3><p>Tente ampliar a distância ou publicar sua necessidade para receber propostas.</p><div class="row center"><button class="btn btn-secondary" id="emptyClear">Limpar filtros</button><button class="btn btn-primary" data-open-request>Publicar necessidade</button></div></div>
     </div>
-  </section>
-
-  <!-- PROFISSIONAIS -->
-  <section class="view" id="view-profissionais" hidden>
-    <div class="container page-head"><div><p class="eyebrow">Rede verificada</p><h1>Profissionais e empresas</h1><p class="muted">Disponibilidade em tempo real na região de Torres/RS.</p></div>
-      <div class="row"><select id="proSort" class="input"><option value="rating">Melhor avaliados</option><option value="jobs">Mais serviços</option><option value="dist">Mais próximos</option></select></div>
-    </div>
-    <div class="container cards-grid three" id="prosGrid"></div>
   </section>
 
   <!-- PERFIL -->
@@ -181,21 +175,30 @@
         <article class="step"><span class="step-n">02</span><div><h3>Receba propostas padronizadas</h3><p>Preço fechado, prazo, garantia e disponibilidade — no mesmo formato para comparar sem viés.</p></div></article>
         <article class="step"><span class="step-n">03</span><div><h3>Escolha, agende e pague com proteção</h3><p>Chat, agenda integrada, check-in por QR e pagamento retido até a conclusão aprovada.</p></div></article>
       </div>
-      <div class="row"><a href="#/buscar" class="btn btn-primary btn-lg">Encontrar um serviço</a><a href="#/cadastro?tipo=prestador" class="btn btn-secondary btn-lg">Oferecer meus serviços</a></div>
+      <div class="row"><a href="#/explorar" class="btn btn-primary btn-lg">Encontrar um serviço</a><a href="#/cadastro?tipo=prestador" class="btn btn-secondary btn-lg">Oferecer meus serviços</a></div>
     </div>
   </section>
 
   <!-- PARA EMPRESAS -->
   <section class="view" id="view-para-empresas" hidden>
-    <div class="container section b2b-hero">
-      <p class="eyebrow">Para empresas</p><h1>Terceirize manutenção e facilities<br>sem perder o controle.</h1>
-      <p class="lead">Multi-unidades, aprovações, SLA, NF-e e relatórios — tudo em um painel.</p>
-      <div class="row"><a href="#/cadastro?tipo=empresa" class="btn btn-primary btn-lg">Criar conta empresarial</a><a href="#/app/dashboard" class="btn btn-secondary btn-lg">Ver demo ao vivo</a></div>
-      <div class="plan-grid">
-        <div class="plan"><h3>Essencial</h3><p class="price-line"><strong>Grátis</strong></p><ul><li>Até 5 solicitações/mês</li><li>Chat e agenda</li><li>Pagamento protegido</li></ul><a href="#/cadastro" class="btn btn-secondary btn-block">Começar</a></div>
-        <div class="plan featured"><span class="badge ok">Mais popular</span><h3>Operação</h3><p class="price-line"><strong>R$ 149</strong><span>/mês</span></p><ul><li>Solicitações ilimitadas</li><li>Multi-unidades e aprovações</li><li>Relatórios e NF-e</li><li>Gerente de conta</li></ul><a href="#/cadastro?tipo=empresa" class="btn btn-primary btn-block">Assinar demo</a></div>
-        <div class="plan"><h3>Enterprise</h3><p class="price-line"><strong>Custom</strong></p><ul><li>SSO e auditoria</li><li>SLA dedicado</li><li>Integrações ERP</li></ul><a href="#/buscar" class="btn btn-secondary btn-block">Falar com vendas</a></div>
+    <div class="container narrow section">
+      <p class="eyebrow">Para empresas</p><h1>Seja uma empresa parceira</h1>
+      <p class="lead">Contrate serviços locais com previsibilidade: publique uma vez e escolha entre propostas comparáveis.</p>
+      <div class="row" style="margin-bottom:2rem"><a href="#/cadastro?tipo=empresa" class="btn btn-primary btn-lg">Criar conta empresarial</a></div>
+      <h2>Por que ser parceira</h2>
+      <ul class="checklist dark">
+        <li><strong>Propostas lado a lado</strong> — preço, prazo e avaliação no mesmo formato</li>
+        <li><strong>Pagamento protegido</strong> — valor liberado só após a conclusão aprovada</li>
+        <li><strong>Agenda e histórico</strong> — tudo registrado, sem planilha</li>
+        <li><strong>Suporte em PT-BR</strong> — gente de verdade para ajudar</li>
+      </ul>
+      <h2 style="margin-top:2rem">Como funciona em 3 passos</h2>
+      <div class="steps vertical">
+        <article class="step"><span class="step-n">01</span><div><h3>Cadastre a empresa</h3><p>Conta grátis em 1 minuto, com CNPJ e dados básicos.</p></div></article>
+        <article class="step"><span class="step-n">02</span><div><h3>Publique a necessidade</h3><p>Descreva o serviço, local, prazo e orçamento.</p></div></article>
+        <article class="step"><span class="step-n">03</span><div><h3>Receba e agende</h3><p>Compare propostas, converse no chat e agende com proteção.</p></div></article>
       </div>
+      <div class="row" style="margin-top:1.4rem"><a href="#/cadastro?tipo=empresa" class="btn btn-primary btn-lg">Criar conta empresarial</a></div>
     </div>
   </section>
 
@@ -238,7 +241,7 @@
           </div>
           <div class="grid2">
             <label class="field"><span>CNPJ / CPF</span><input id="suDoc" required placeholder="00.000.000/0001-00"></label>
-            <label class="field"><span>Cidade / UF</span><input id="suCity" value="Torres / RS"></label>
+            <label class="field"><span>Cidade / UF</span><input id="suCity" value="Vila Aurora"></label>
           </div>
           <div class="grid2" id="suExtra" hidden>
             <label class="field"><span>Especialidades</span><input placeholder="Ex.: Elétrica, Redes, Climatização"></label>
@@ -268,7 +271,7 @@
   <div class="app-layout">
     <aside class="sidebar" aria-label="Navegação do painel">
       <a href="#/" class="brand small"><span class="brand-mark"><svg viewBox="0 0 32 32" width="24" height="24"><rect width="32" height="32" rx="8" fill="#1D4ED8"/><path d="M10 22V10l12 12V10" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-name">Nexo</span></a>
-      <div class="ws-switch"><span class="ws-avatar">LP</span><div><strong id="wsName">Lojas Prisma</strong><small id="wsRole">Empresa · Torres/RS</small></div><button class="icon-btn" data-toast="Troca de workspace em breve na demo." aria-label="Trocar workspace">⇅</button></div>
+      <div class="ws-switch"><span class="ws-avatar">LP</span><div><strong id="wsName">Lojas Prisma</strong><small id="wsRole">Empresa · Vila Aurora</small></div><button class="icon-btn" data-toast="Troca de workspace em breve na demo." aria-label="Trocar workspace">⇅</button></div>
       <nav class="side-nav" id="sideNav"></nav>
       <div class="side-foot"><div class="usage"><small>Plano Operação · 12/∞ solicitações</small><div class="mock-progress"><i style="width:34%"></i></div></div><button class="side-item" data-route="config"><span>⚙</span> Configurações</button><button class="side-item" id="logoutBtn"><span>↩</span> Sair da demo</button></div>
     </aside>
@@ -298,8 +301,8 @@
 <!-- FOOTER -->
 <footer class="site-footer" id="siteFooter">
   <div class="container foot-grid">
-    <div><span class="brand"><span class="brand-mark"><svg viewBox="0 0 32 32" width="24" height="24"><rect width="32" height="32" rx="8" fill="#fff"/><path d="M10 22V10l12 12V10" stroke="#1D4ED8" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-name">Nexo</span></span><p>Marketplace B2B que conecta empresas, lojas e profissionais.</p><p class="muted">Torres/RS · Brasil · LGPD compliant</p></div>
-    <div><h4>Produto</h4><a href="#/buscar">Encontrar serviços</a><a href="#/profissionais">Profissionais</a><a href="#/para-empresas">Para empresas</a><a href="#/app/dashboard">Demo do painel</a></div>
+    <div><span class="brand"><span class="brand-mark"><svg viewBox="0 0 32 32" width="24" height="24"><rect width="32" height="32" rx="8" fill="#fff"/><path d="M10 22V10l12 12V10" stroke="#1D4ED8" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-name">Nexo</span></span><p>Marketplace B2B que conecta empresas, lojas e profissionais.</p><p class="muted">Vila Aurora · Brasil · cidade fictícia · LGPD compliant</p></div>
+    <div><h4>Produto</h4><a href="#/explorar">Explorar</a><a href="#/para-empresas">Para empresas</a><a href="#/app/dashboard">Demo do painel</a></div>
     <div><h4>Empresa</h4><a href="#/como-funciona">Como funciona</a><a href="#" data-toast="Página institucional na demo.">Sobre</a><a href="#" data-toast="Página institucional na demo.">Carreiras</a><a href="#" data-toast="Página institucional na demo.">Imprensa</a></div>
     <div><h4>Suporte</h4><a href="#" data-toast="Central de ajuda em breve na demo.">Central de ajuda</a><a href="#" data-toast="Abrindo chat de suporte…">Falar conosco</a><a href="#" data-toast="Página institucional na demo.">Termos e LGPD</a></div>
   </div>
@@ -314,7 +317,7 @@
   </div>
 </div>
 
-<script src="js/store.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/store.js?v=17"></script>
+<script src="js/app.js?v=17"></script>
 </body>
 </html>

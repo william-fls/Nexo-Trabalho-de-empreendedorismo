@@ -4,17 +4,17 @@ Conectamos empresas, lojas e profissionais para encontrar, oferecer e agendar se
 
 Projeto front-end puro (sem build, sem framework) com site público + painel funcional. Ideal para MVP, validação e demonstração de produto.
 
-> Dados fictícios para demonstração. Região padrão: Torres/RS.
+> Dados fictícios para demonstração. Cidade fictícia: Vila Aurora.
 
 ## ✨ O que o projeto faz
 
 **Site público (`#/`):**
-- Home com hero, busca, catálogo, como funciona, profissionais em destaque, planos B2B e FAQ
-- Busca avançada (`#/buscar`) — por texto, categoria, distância, avaliação, preço, data e disponibilidade
-- Lista de profissionais (`#/profissionais`) com ordenação por avaliação, serviços e distância
-- Perfil público (`#/perfil/:id`) com abas Sobre / Serviços / Avaliações
+- Home com busca, portas Lojas/Serviços e lista de destaques
+- Explorar (`#/explorar`) — serviços, lojas e profissionais com filtro por tipo, texto, categoria, distância, avaliação e preço
+- Perfil público (`#/perfil/:id`) — loja (vitrine, catálogo, info) ou prestador (serviços, info)
+- Sacola (`#/carrinho`) com checkout e Nexo Pay (demo)
 - Páginas institucionais: Como funciona, Para empresas
-- Login e Cadastro com 3 perfis: Empresa, Prestadora e Autônomo
+- Login e Cadastro com 4 perfis: Empresa, Prestadora, Autônomo e Loja
 
 **Painel logado (`#/app/*`):**
 - Dashboard diferente para contratante vs. prestador (KPIs, próximos serviços, gastos, oportunidades)
@@ -68,7 +68,7 @@ Senha de todas as contas: `demo1234`
 | 🏢 Empresa | `empresa@demo.com` | Contratar, publicar pedidos, aceitar propostas |
 | 👤 Autônomo | `carlos@demo.com` | Enviar propostas, agenda, chat |
 | 🛠 Prestadora | `eletrosul@demo.com` | Mesmo fluxo de prestador, com equipe |
-| 🏪 Loja | `loja@demo.com` | Vitrine + catálogo (Veste Litoral), e contrata como empresa |
+| 🏪 Loja | `loja@demo.com` | Vitrine + catálogo (Veste Aurora), e contrata como empresa |
 | 🐾 Pet | `pet@demo.com` | Vitrine + catálogo (Casa & Cia Pet) |
 | 💊 Essência | `essencia@demo.com` | Vitrine + catálogo (Essência & Cuidado) |
 
@@ -78,14 +78,14 @@ Seed inclui: 23 usuários, 15 serviços, 15 produtos, 10 solicitações, 20 prop
 
 ## 🛒 Sacola e pagamento (demo)
 
-- Botão `+` no catálogo adiciona à sacola (uma loja por vez); `#/carrinho` soma, identica o comprador e finaliza.
+- Botão `+` no catálogo adiciona à sacola (vale misturar lojas; cada loja recebe o seu pedido).
 - Pix/cartão passam pelo `window.NexoPay`, que **simula** a aprovação e registra em `db.orders` — nenhum valor é cobrado.
 - Cobrança real exige backend (conta em Mercado Pago/Stripe, chave secreta no servidor, webhook e TLS) e pluga no mesmo `NexoPay.checkout(order)`.
 
 ## 🧭 Rotas
 
  Públicas:
-- `#/` home · `#/buscar` · `#/profissionais` · `#/perfil/:id`
+- `#/` home · `#/explorar` · `#/perfil/:id` · `#/carrinho` (`#/buscar` e `#/profissionais` redirecionam para `#/explorar`)
 - `#/como-funciona` · `#/para-empresas` · `#/login` · `#/cadastro`
 
  Painel (requer login):

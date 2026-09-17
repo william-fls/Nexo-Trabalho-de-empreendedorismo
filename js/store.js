@@ -36,6 +36,7 @@
   var CAPAS = ["g0", "g1", "g2", "g3", "g4", "g5"];
   function storeDefaults(u, i) {
     if (!u || u.tipo === "empresa") return u;
+    if (u.disponibilidade == null) u.disponibilidade = "semana";
     if (u.capa == null) u.capa = CAPAS[(i || 0) % CAPAS.length];
     if (u.horario == null) u.horario = "Seg–Sáb · 08h–18h";
     if (u.raio == null) u.raio = 15;
@@ -47,15 +48,39 @@
     return u;
   }
   /* Migração: v1 -> defaults da vitrine; v2/v3/v4 -> products + campos de loja;
-     v5 -> cat/menuCats; v6 -> sacola (cart) + pedidos (orders). Nunca apaga dados locais. */
+     v5 -> cat/menuCats; v6 -> sacola (cart) + pedidos (orders);
+     v7 -> cidade fictícia Vila Aurora + importa lojas demo que faltam;
+     v8 -> disponibilidade padrão; v9 -> sacola multi-loja;
+     v10 -> restaura categorias do seed em produtos sem cat;
+     v11 -> restaura também sobre "Geral" e re-deriva o menu. Nunca apaga dados locais. */
   function migrate(db) {
-    if (db.v === 1) db.users.forEach(function (u, i) { storeDefaults(u, i); });
+    db.users.forEach(function (u, i) { if (u.tipo !== "empresa") storeDefaults(u, i); });
     if (!db.products) db.products = [];
-    if (!db.cart) db.cart = { lojaId: null, items: [] };
+    if (!db.cart) db.cart = { items: [] };
     if (!db.orders) db.orders = [];
-    db.products.forEach(function (p) { if (!p.cat) p.cat = "Geral"; });
+    if (!db.cart.items) db.cart.items = [];
+    db.cart.items.forEach(function (it) {
+      if (!it.lojaId) {
+        var p = db.products.filter(function (x) { return x.id === it.prodId; })[0];
+        it.lojaId = p ? p.lojaId : (db.cart.lojaId || null);
+      }
+    });
+    if (db.cart && ("lojaId" in db.cart)) delete db.cart.lojaId;
+    var sh = seedShops("demo1234");
+    var seedCat = {};
+    sh.products.forEach(function (sp) { seedCat[sp.id] = sp.cat; });
+    sh.users.forEach(function (su) {
+      var exists = db.users.some(function (x) { return x.id === su.id; });
+      if (!exists) db.users.push(JSON.parse(JSON.stringify(su)));
+    });
+    sh.products.forEach(function (sp) {
+      var exists = db.products.some(function (x) { return x.id === sp.id; });
+      if (!exists) db.products.push(JSON.parse(JSON.stringify(sp)));
+    });
+    db.products.forEach(function (p) { if (!p.cat || p.cat === "Geral") p.cat = seedCat[p.id] || "Geral"; });
     db.users.forEach(function (u) {
-      var hadCats = u.tipo === "loja" && u.menuCats && u.menuCats.length;
+      var onlyGeral = u.tipo === "loja" && u.menuCats && u.menuCats.length === 1 && u.menuCats[0] === "Geral";
+      var hadCats = u.tipo === "loja" && u.menuCats && u.menuCats.length && !onlyGeral;
       shopDefaults(u);
       if (u.tipo === "loja" && !hadCats) {
         var cats = [];
@@ -65,7 +90,6 @@
         if (cats.length) u.menuCats = cats;
       }
     });
-    var sh = seedShops("demo1234");
     sh.users.forEach(function (su) {
       var exists = db.users.some(function (x) { return x.id === su.id; });
       if (!exists) db.users.push(JSON.parse(JSON.stringify(su)));
@@ -74,7 +98,8 @@
       var exists = db.products.some(function (x) { return x.id === sp.id; });
       if (!exists) db.products.push(JSON.parse(JSON.stringify(sp)));
     });
-    db.v = 6;
+    renameCity(db);
+    db.v = 11;
     return db;
   }
   /* Campos exclusivos do mini-site da loja (tipo "loja"). */
@@ -85,13 +110,29 @@
     if (u.menuCats == null) u.menuCats = ["Geral"];
     return u;
   }
+  /* Renomeia a cidade real para a fictícia em bases antigas. */
+  function renameCity(db) {
+    var reps = [["Torres / RS", "Vila Aurora"], ["Torres/RS", "Vila Aurora"], ["Capão da Canoa / RS", "Porto Alto"], ["Arroio do Sal / RS", "Vale Verde"], ["Hidro Torres", "Hidro Aurora"], ["Veste Litoral", "Veste Aurora"], ["no litoral norte", "na região"], ["beira-mar", "central"], ["@limpaforte.torres", "@limpaforte.aurora"], ["@carlos.tech.torres", "@carlos.tech.aurora"], ["@veste.litoral", "@veste.aurora"], ["vestelitoral", "vesteaurora"]];
+    ["users", "requests", "notifs"].forEach(function (col) {
+      (db[col] || []).forEach(function (it) {
+        ["nome", "cidade", "local", "descricao", "texto", "endereco", "instagram", "facebook"].forEach(function (k) {
+          if (typeof it[k] === "string") {
+            var v = it[k];
+            reps.forEach(function (r) { v = v.split(r[0]).join(r[1]); });
+            it[k] = v;
+          }
+        });
+      });
+    });
+    return db;
+  }
   /* Lojas demo completas (vitrine + catálogo). Usado pelo seed e pela
      migração para importar lojas que faltam em bases antigas. */
   function seedShops(PASS) {
     var users = [
-      { id: "u_loja_veste", tipo: "loja", nome: "Veste Litoral", email: "loja@demo.com", senha: PASS, doc: "12.345.678/0001-99", cidade: "Torres / RS", telefone: "(51) 99933-4455", descricao: "Moda feminina e infantil no Centro de Torres. Peças a pronta entrega, provador e novidades toda semana.", cor: "#DB2777", verificado: true, jobs: 64, dist: 0.8, capa: "g4", horario: "Seg–Sáb · 09h–19h", raio: 5, precoBase: 0, whatsapp: "(51) 99933-4455", instagram: "@veste.litoral", facebook: "vestelitoral", portfolio: ["Vitrine nova — Centro", "Coleção verão 2026"], endereco: "Av. Barão do Rio Branco, 412 — Centro", categoriaLoja: "Moda", menuCats: ["Vestidos e saias", "Básicos", "Jeans", "Casacos", "Infantil"] },
-      { id: "u_loja_pet", tipo: "loja", nome: "Casa & Cia Pet", email: "pet@demo.com", senha: PASS, doc: "23.456.789/0001-88", cidade: "Torres / RS", telefone: "(51) 99944-5566", descricao: "Banho, tosa e rações no Centro. Buscamos e entregamos na região central.", cor: "#4D7C0F", verificado: true, jobs: 41, dist: 1.2, capa: "g2", horario: "Seg–Sáb · 08h–18h", raio: 8, precoBase: 0, whatsapp: "(51) 99944-5566", instagram: "@casaeciapet", facebook: "casaeciapet", portfolio: ["Banho & tosa — 200+ clientes/mês"], endereco: "Rua Coberta, 88 — Centro", categoriaLoja: "Casa", menuCats: ["Banho", "Tosa", "Rações e petiscos"] },
-      { id: "u_loja_essencia", tipo: "loja", nome: "Essência & Cuidado", email: "essencia@demo.com", senha: PASS, doc: "34.567.890/0001-77", cidade: "Torres / RS", telefone: "(51) 99955-6677", descricao: "Manipulação, óleos essenciais e chás. Atendimento com farmacêutica.", cor: "#A21CAF", verificado: true, jobs: 58, dist: 2.3, capa: "g5", horario: "Seg–Sex · 08h30–18h30 · Sáb 08h–12h", raio: 10, precoBase: 0, whatsapp: "(51) 99955-6677", instagram: "@essencia.cuidado", facebook: "essenciaecuidado", portfolio: ["Linha calmante — Hotel Atlântico"], endereco: "Av. Paraguassú, 1205 — Centro", categoriaLoja: "Saúde", menuCats: ["Óleos essenciais", "Manipulados", "Chás e sabonetes"] }
+      { id: "u_loja_veste", tipo: "loja", nome: "Veste Aurora", email: "loja@demo.com", senha: PASS, doc: "12.345.678/0001-99", cidade: "Vila Aurora", telefone: "(51) 99933-4455", descricao: "Peças a pronta entrega, provador e novidades toda semana.", cor: "#DB2777", verificado: true, jobs: 64, dist: 0.8, capa: "g4", disponibilidade: "hoje", horario: "Seg–Sáb · 09h–19h", raio: 5, precoBase: 0, whatsapp: "(51) 99933-4455", instagram: "@veste.aurora", facebook: "vesteaurora", portfolio: ["Vitrine nova — Centro", "Coleção verão 2026"], endereco: "Av. Barão do Rio Branco, 412 — Centro", categoriaLoja: "Moda", menuCats: ["Vestidos e saias", "Básicos", "Jeans", "Casacos", "Infantil"] },
+      { id: "u_loja_pet", tipo: "loja", nome: "Casa & Cia Pet", email: "pet@demo.com", senha: PASS, doc: "23.456.789/0001-88", cidade: "Vila Aurora", telefone: "(51) 99944-5566", descricao: "Banho, tosa e rações no Centro. Buscamos e entregamos na região central.", cor: "#4D7C0F", verificado: true, jobs: 41, dist: 1.2, capa: "g2", disponibilidade: "hoje", horario: "Seg–Sáb · 08h–18h", raio: 8, precoBase: 0, whatsapp: "(51) 99944-5566", instagram: "@casaeciapet", facebook: "casaeciapet", portfolio: ["Banho & tosa — 200+ clientes/mês"], endereco: "Rua Coberta, 88 — Centro", categoriaLoja: "Casa", menuCats: ["Banho", "Tosa", "Rações e petiscos"] },
+      { id: "u_loja_essencia", tipo: "loja", nome: "Essência & Cuidado", email: "essencia@demo.com", senha: PASS, doc: "34.567.890/0001-77", cidade: "Vila Aurora", telefone: "(51) 99955-6677", descricao: "Manipulação, óleos essenciais e chás. Atendimento com farmacêutica.", cor: "#A21CAF", verificado: true, jobs: 58, dist: 2.3, capa: "g5", disponibilidade: "semana", horario: "Seg–Sex · 08h30–18h30 · Sáb 08h–12h", raio: 10, precoBase: 0, whatsapp: "(51) 99955-6677", instagram: "@essencia.cuidado", facebook: "essenciaecuidado", portfolio: ["Linha calmante — Hotel Atlântico"], endereco: "Av. Paraguassú, 1205 — Centro", categoriaLoja: "Saúde", menuCats: ["Óleos essenciais", "Manipulados", "Chás e sabonetes"] }
     ];
     var products = [
       { id: "pd1", lojaId: "u_loja_veste", nome: "Vestido verão estampado", preco: 129, desc: "Viscose, P ao GG.", cat: "Vestidos e saias" },
@@ -118,28 +159,28 @@
     var PASS = "demo1234"; // senha das 3 contas demo
     var users = [
       /* --- empresas contratantes (5) --- */
-      { id: "u_emp_prisma", tipo: "empresa", nome: "Lojas Prisma", email: "empresa@demo.com", senha: PASS, doc: "12.345.678/0001-90", cidade: "Torres / RS", telefone: "(51) 99911-2200", descricao: "Rede varejista com 3 lojas no litoral norte. Demandas recorrentes de manutenção, climatização e segurança.", cor: "#1D4ED8", verificado: true },
-      { id: "u_emp_atlantico", tipo: "empresa", nome: "Hotel Atlântico", email: "atlantico@mail.com", senha: PASS, doc: "23.456.789/0001-01", cidade: "Torres / RS", telefone: "(51) 99811-3322", descricao: "Hotel beira-mar com 80 quartos, restaurante e área de eventos.", cor: "#0E7490", verificado: true },
-      { id: "u_emp_pao", tipo: "empresa", nome: "Padaria Pão & Cia", email: "paoecia@mail.com", senha: PASS, doc: "34.567.890/0001-12", cidade: "Torres / RS", telefone: "(51) 99722-4411", descricao: "Padaria artesanal no Centro, fornos industriais e salão.", cor: "#B45309", verificado: true },
-      { id: "u_emp_vitta", tipo: "empresa", nome: "Clínica Vitta", email: "vitta@mail.com", senha: PASS, doc: "45.678.901/0001-23", cidade: "Torres / RS", telefone: "(51) 99633-5511", descricao: "Clínica multidisciplinar com 12 consultórios.", cor: "#0E9F6E", verificado: true },
-      { id: "u_emp_market", tipo: "empresa", nome: "Market Sul", email: "marketsul@mail.com", senha: PASS, doc: "56.789.012/0001-34", cidade: "Torres / RS", telefone: "(51) 99544-6611", descricao: "Supermercado de bairro com câmaras frias e estacionamento.", cor: "#6D28D9", verificado: true },
+      { id: "u_emp_prisma", tipo: "empresa", nome: "Lojas Prisma", email: "empresa@demo.com", senha: PASS, doc: "12.345.678/0001-90", cidade: "Vila Aurora", telefone: "(51) 99911-2200", descricao: "Rede varejista com 3 lojas na região. Demandas recorrentes de manutenção, climatização e segurança.", cor: "#1D4ED8", verificado: true },
+      { id: "u_emp_atlantico", tipo: "empresa", nome: "Hotel Atlântico", email: "atlantico@mail.com", senha: PASS, doc: "23.456.789/0001-01", cidade: "Vila Aurora", telefone: "(51) 99811-3322", descricao: "Hotel central com 80 quartos, restaurante e área de eventos.", cor: "#0E7490", verificado: true },
+      { id: "u_emp_pao", tipo: "empresa", nome: "Padaria Pão & Cia", email: "paoecia@mail.com", senha: PASS, doc: "34.567.890/0001-12", cidade: "Vila Aurora", telefone: "(51) 99722-4411", descricao: "Padaria artesanal no Centro, fornos industriais e salão.", cor: "#B45309", verificado: true },
+      { id: "u_emp_vitta", tipo: "empresa", nome: "Clínica Vitta", email: "vitta@mail.com", senha: PASS, doc: "45.678.901/0001-23", cidade: "Vila Aurora", telefone: "(51) 99633-5511", descricao: "Clínica multidisciplinar com 12 consultórios.", cor: "#0E9F6E", verificado: true },
+      { id: "u_emp_market", tipo: "empresa", nome: "Market Sul", email: "marketsul@mail.com", senha: PASS, doc: "56.789.012/0001-34", cidade: "Vila Aurora", telefone: "(51) 99544-6611", descricao: "Supermercado de bairro com câmaras frias e estacionamento.", cor: "#6D28D9", verificado: true },
       /* --- empresas prestadoras (5) --- */
-      { id: "u_pre_eletrosul", tipo: "prestadora", nome: "Eletro Sul Comercial", email: "eletrosul@demo.com", senha: PASS, doc: "67.890.123/0001-45", cidade: "Capão da Canoa / RS", telefone: "(51) 3664-1000", descricao: "Elétrica predial e comercial com equipe NR-10/NR-35 e emissão de ART.", especialidades: ["Elétrica", "Manutenção"], disponibilidade: "Seg–Sáb", cor: "#6D28D9", verificado: true },
-      { id: "u_pre_limpa", tipo: "prestadora", nome: "Limpa Forte", email: "limpaforte@mail.com", senha: PASS, doc: "78.901.234/0001-56", cidade: "Torres / RS", telefone: "(51) 3664-2000", descricao: "Equipe de 8 profissionais para limpeza comercial recorrente e pós-obra.", especialidades: ["Limpeza"], disponibilidade: "Seg–Dom", cor: "#BE123C", verificado: true },
-      { id: "u_pre_vetor", tipo: "prestadora", nome: "Vetor Segurança", email: "vetor@mail.com", senha: PASS, doc: "89.012.345/0001-67", cidade: "Torres / RS", telefone: "(51) 3664-3000", descricao: "Projetos de CFTV, alarmes e controle de acesso para comércio.", especialidades: ["Segurança", "Redes"], disponibilidade: "Seg–Sáb", cor: "#1D4ED8", verificado: true },
-      { id: "u_pre_techsul", tipo: "prestadora", nome: "TechSul Facilities", email: "techsul@mail.com", senha: PASS, doc: "90.123.456/0001-78", cidade: "Torres / RS", telefone: "(51) 3664-4000", descricao: "Manutenção predial preventiva com SLA 24h e contratos mensais.", especialidades: ["Manutenção", "Hidráulica"], disponibilidade: "24h", cor: "#0F172A", verificado: true },
-      { id: "u_pre_climasul", tipo: "prestadora", nome: "ClimaSul PMOC", email: "climasul@mail.com", senha: PASS, doc: "01.234.567/0001-89", cidade: "Torres / RS", telefone: "(51) 3664-5000", descricao: "Climatização corporativa com PMOC e relatórios para auditoria.", especialidades: ["Climatização"], disponibilidade: "Seg–Sáb", cor: "#0284C7", verificado: true },
+      { id: "u_pre_eletrosul", tipo: "prestadora", nome: "Eletro Sul Comercial", email: "eletrosul@demo.com", senha: PASS, doc: "67.890.123/0001-45", cidade: "Porto Alto", telefone: "(51) 3664-1000", descricao: "Elétrica predial e comercial com equipe NR-10/NR-35 e emissão de ART.", especialidades: ["Elétrica", "Manutenção"], disponibilidade: "Seg–Sáb", cor: "#6D28D9", verificado: true },
+      { id: "u_pre_limpa", tipo: "prestadora", nome: "Limpa Forte", email: "limpaforte@mail.com", senha: PASS, doc: "78.901.234/0001-56", cidade: "Vila Aurora", telefone: "(51) 3664-2000", descricao: "Equipe de 8 profissionais para limpeza comercial recorrente e pós-obra.", especialidades: ["Limpeza"], disponibilidade: "Seg–Dom", cor: "#BE123C", verificado: true },
+      { id: "u_pre_vetor", tipo: "prestadora", nome: "Vetor Segurança", email: "vetor@mail.com", senha: PASS, doc: "89.012.345/0001-67", cidade: "Vila Aurora", telefone: "(51) 3664-3000", descricao: "Projetos de CFTV, alarmes e controle de acesso para comércio.", especialidades: ["Segurança", "Redes"], disponibilidade: "Seg–Sáb", cor: "#1D4ED8", verificado: true },
+      { id: "u_pre_techsul", tipo: "prestadora", nome: "TechSul Facilities", email: "techsul@mail.com", senha: PASS, doc: "90.123.456/0001-78", cidade: "Vila Aurora", telefone: "(51) 3664-4000", descricao: "Manutenção predial preventiva com SLA 24h e contratos mensais.", especialidades: ["Manutenção", "Hidráulica"], disponibilidade: "24h", cor: "#0F172A", verificado: true },
+      { id: "u_pre_climasul", tipo: "prestadora", nome: "ClimaSul PMOC", email: "climasul@mail.com", senha: PASS, doc: "01.234.567/0001-89", cidade: "Vila Aurora", telefone: "(51) 3664-5000", descricao: "Climatização corporativa com PMOC e relatórios para auditoria.", especialidades: ["Climatização"], disponibilidade: "Seg–Sáb", cor: "#0284C7", verificado: true },
       /* --- profissionais autônomos (10) --- */
-      { id: "u_aut_carlos", tipo: "autonomo", nome: "Carlos Tecnologia", email: "carlos@demo.com", senha: PASS, doc: "123.456.789-00", cidade: "Torres / RS", telefone: "(51) 99922-1122", descricao: "Suporte para lojas e escritórios: redes, backups e manutenção de PCs. SLA de 4h.", especialidades: ["Redes", "Suporte", "Backups"], experiencia: "11 anos · MEI · NF-e", disponibilidade: "hoje", cor: "#1D4ED8", verificado: true },
-      { id: "u_aut_joao", tipo: "autonomo", nome: "João Segurança", email: "joao@mail.com", senha: PASS, doc: "234.567.890-11", cidade: "Torres / RS", telefone: "(51) 99833-2233", descricao: "Instalador de CFTV e alarmes para comércio. Garantia de 12 meses e app configurado.", especialidades: ["CFTV", "Alarmes", "Controle de acesso"], experiencia: "9 anos · MEI · NF-e", disponibilidade: "semana", cor: "#0F766E", verificado: true },
-      { id: "u_aut_marina", tipo: "autonomo", nome: "Marina Clima", email: "marina@mail.com", senha: PASS, doc: "345.678.901-22", cidade: "Torres / RS", telefone: "(51) 99744-3344", descricao: "Instalação e higienização de splits com garantia de serviço.", especialidades: ["Split", "PMOC", "Higienização"], experiencia: "7 anos · Autônoma · NF-e", disponibilidade: "hoje", cor: "#0E7490", verificado: true },
-      { id: "u_aut_hidro", tipo: "autonomo", nome: "Hidro Torres", email: "hidro@mail.com", senha: PASS, doc: "456.789.012-33", cidade: "Torres / RS", telefone: "(51) 99655-4455", descricao: "Caça-vazamentos sem quebra-quebra, pressurizadores e reparos rápidos.", especialidades: ["Vazamentos", "Pressurizadores"], experiencia: "12 anos · Autônomo", disponibilidade: "semana", cor: "#0284C7", verificado: true },
-      { id: "u_aut_ana", tipo: "autonomo", nome: "Ana Costa Pinturas", email: "ana@mail.com", senha: PASS, doc: "567.890.123-44", cidade: "Torres / RS", telefone: "(51) 99566-5566", descricao: "Pintura comercial e residencial, fachadas e efeitos decorativos.", especialidades: ["Pintura", "Fachadas"], experiencia: "8 anos · MEI", disponibilidade: "semana", cor: "#BE123C", verificado: true },
-      { id: "u_aut_rafael", tipo: "autonomo", nome: "Rafael Marcenaria", email: "rafael@mail.com", senha: PASS, doc: "678.901.234-55", cidade: "Torres / RS", telefone: "(51) 99477-6677", descricao: "Móveis sob medida, balcões para loja e montagem com garantia.", especialidades: ["Planejados", "Balcões"], experiencia: "10 anos · Autônomo", disponibilidade: "semana", cor: "#92400E", verificado: true },
-      { id: "u_aut_ju", tipo: "autonomo", nome: "Juliana Foto & Eventos", email: "juliana@mail.com", senha: PASS, doc: "789.012.345-66", cidade: "Torres / RS", telefone: "(51) 99388-7788", descricao: "Comunicação visual e cobertura fotográfica para empresas e eventos.", especialidades: ["Fachadas", "Foto corporativa"], experiencia: "6 anos · MEI", disponibilidade: "agenda", cor: "#6D28D9", verificado: true },
-      { id: "u_aut_marcos", tipo: "autonomo", nome: "Marcos Vinícius Obras", email: "marcos@mail.com", senha: PASS, doc: "890.123.456-77", cidade: "Arroio do Sal / RS", telefone: "(51) 99299-8899", descricao: "Pedreiro e reformista: pisos, reboco e impermeabilização.", especialidades: ["Alvenaria", "Pisos"], experiencia: "13 anos · Autônomo", disponibilidade: "semana", cor: "#334155", verificado: false },
-      { id: "u_aut_fernanda", tipo: "autonomo", nome: "Fernanda Jardins", email: "fernanda@mail.com", senha: PASS, doc: "901.234.567-88", cidade: "Torres / RS", telefone: "(51) 99111-9900", descricao: "Jardinagem condominial e paisagismo para áreas comerciais.", especialidades: ["Paisagismo", "Poda"], experiencia: "5 anos · MEI", disponibilidade: "semana", cor: "#0E9F6E", verificado: true },
-      { id: "u_aut_lucas", tipo: "autonomo", nome: "Lucas Mendes Elétrica", email: "lucas@mail.com", senha: PASS, doc: "012.345.678-99", cidade: "Torres / RS", telefone: "(51) 99022-1100", descricao: "Eletricista autônomo NR-10 para comércios: quadros, luminárias e revisões.", especialidades: ["Quadros", "Iluminação"], experiencia: "6 anos · Autônomo", disponibilidade: "hoje", cor: "#B45309", verificado: true }
+      { id: "u_aut_carlos", tipo: "autonomo", nome: "Carlos Tecnologia", email: "carlos@demo.com", senha: PASS, doc: "123.456.789-00", cidade: "Vila Aurora", telefone: "(51) 99922-1122", descricao: "Suporte para lojas e escritórios: redes, backups e manutenção de PCs. SLA de 4h.", especialidades: ["Redes", "Suporte", "Backups"], experiencia: "11 anos · MEI · NF-e", disponibilidade: "hoje", cor: "#1D4ED8", verificado: true },
+      { id: "u_aut_joao", tipo: "autonomo", nome: "João Segurança", email: "joao@mail.com", senha: PASS, doc: "234.567.890-11", cidade: "Vila Aurora", telefone: "(51) 99833-2233", descricao: "Instalador de CFTV e alarmes para comércio. Garantia de 12 meses e app configurado.", especialidades: ["CFTV", "Alarmes", "Controle de acesso"], experiencia: "9 anos · MEI · NF-e", disponibilidade: "semana", cor: "#0F766E", verificado: true },
+      { id: "u_aut_marina", tipo: "autonomo", nome: "Marina Clima", email: "marina@mail.com", senha: PASS, doc: "345.678.901-22", cidade: "Vila Aurora", telefone: "(51) 99744-3344", descricao: "Instalação e higienização de splits com garantia de serviço.", especialidades: ["Split", "PMOC", "Higienização"], experiencia: "7 anos · Autônoma · NF-e", disponibilidade: "hoje", cor: "#0E7490", verificado: true },
+      { id: "u_aut_hidro", tipo: "autonomo", nome: "Hidro Aurora", email: "hidro@mail.com", senha: PASS, doc: "456.789.012-33", cidade: "Vila Aurora", telefone: "(51) 99655-4455", descricao: "Caça-vazamentos sem quebra-quebra, pressurizadores e reparos rápidos.", especialidades: ["Vazamentos", "Pressurizadores"], experiencia: "12 anos · Autônomo", disponibilidade: "semana", cor: "#0284C7", verificado: true },
+      { id: "u_aut_ana", tipo: "autonomo", nome: "Ana Costa Pinturas", email: "ana@mail.com", senha: PASS, doc: "567.890.123-44", cidade: "Vila Aurora", telefone: "(51) 99566-5566", descricao: "Pintura comercial e residencial, fachadas e efeitos decorativos.", especialidades: ["Pintura", "Fachadas"], experiencia: "8 anos · MEI", disponibilidade: "semana", cor: "#BE123C", verificado: true },
+      { id: "u_aut_rafael", tipo: "autonomo", nome: "Rafael Marcenaria", email: "rafael@mail.com", senha: PASS, doc: "678.901.234-55", cidade: "Vila Aurora", telefone: "(51) 99477-6677", descricao: "Móveis sob medida, balcões para loja e montagem com garantia.", especialidades: ["Planejados", "Balcões"], experiencia: "10 anos · Autônomo", disponibilidade: "semana", cor: "#92400E", verificado: true },
+      { id: "u_aut_ju", tipo: "autonomo", nome: "Juliana Foto & Eventos", email: "juliana@mail.com", senha: PASS, doc: "789.012.345-66", cidade: "Vila Aurora", telefone: "(51) 99388-7788", descricao: "Comunicação visual e cobertura fotográfica para empresas e eventos.", especialidades: ["Fachadas", "Foto corporativa"], experiencia: "6 anos · MEI", disponibilidade: "agenda", cor: "#6D28D9", verificado: true },
+      { id: "u_aut_marcos", tipo: "autonomo", nome: "Marcos Vinícius Obras", email: "marcos@mail.com", senha: PASS, doc: "890.123.456-77", cidade: "Vale Verde", telefone: "(51) 99299-8899", descricao: "Pedreiro e reformista: pisos, reboco e impermeabilização.", especialidades: ["Alvenaria", "Pisos"], experiencia: "13 anos · Autônomo", disponibilidade: "semana", cor: "#334155", verificado: false },
+      { id: "u_aut_fernanda", tipo: "autonomo", nome: "Fernanda Jardins", email: "fernanda@mail.com", senha: PASS, doc: "901.234.567-88", cidade: "Vila Aurora", telefone: "(51) 99111-9900", descricao: "Jardinagem condominial e paisagismo para áreas comerciais.", especialidades: ["Paisagismo", "Poda"], experiencia: "5 anos · MEI", disponibilidade: "semana", cor: "#0E9F6E", verificado: true },
+      { id: "u_aut_lucas", tipo: "autonomo", nome: "Lucas Mendes Elétrica", email: "lucas@mail.com", senha: PASS, doc: "012.345.678-99", cidade: "Vila Aurora", telefone: "(51) 99022-1100", descricao: "Eletricista autônomo NR-10 para comércios: quadros, luminárias e revisões.", especialidades: ["Quadros", "Iluminação"], experiencia: "6 anos · Autônomo", disponibilidade: "hoje", cor: "#B45309", verificado: true }
     ];
     var _sh = seedShops(PASS);
     users = users.concat(_sh.users);
@@ -160,11 +201,11 @@
     /* --- vitrine das lojas: dados demo de contato, redes e portfólio --- */
     var STORE = {
       u_pre_eletrosul: { capa: "g3", horario: "Seg–Sáb · 07h–19h", raio: 30, precoBase: 180, whatsapp: "(51) 99664-1000", instagram: "@eletrosul.rs", facebook: "eletrosulrs", portfolio: ["Quadro comercial 36 disjuntores — Lojas Prisma", "Retrofit LED Loja Centro — 120 pontos"] },
-      u_pre_limpa: { capa: "g4", horario: "Seg–Dom · 06h–22h", raio: 20, precoBase: 90, whatsapp: "(51) 99664-2000", instagram: "@limpaforte.torres", facebook: "limpaforte", portfolio: ["Limpeza recorrente — Clínica Vitta", "Pós-obra — Hotel Atlântico"] },
+      u_pre_limpa: { capa: "g4", horario: "Seg–Dom · 06h–22h", raio: 20, precoBase: 90, whatsapp: "(51) 99664-2000", instagram: "@limpaforte.aurora", facebook: "limpaforte", portfolio: ["Limpeza recorrente — Clínica Vitta", "Pós-obra — Hotel Atlântico"] },
       u_pre_vetor: { capa: "g0", horario: "Seg–Sáb · 08h–18h", raio: 25, precoBase: 800, whatsapp: "(51) 99664-3000", instagram: "@vetor.seguranca", facebook: "vetorseguranca", portfolio: ["CFTV 16 câmeras — Market Sul", "Controle de acesso — Clínica Vitta"] },
       u_pre_techsul: { capa: "g5", horario: "24h · plantão", raio: 40, precoBase: 990, whatsapp: "(51) 99664-4000", instagram: "@techsul.facilities", facebook: "", portfolio: ["Preventiva mensal — Hotel Atlântico", "Hidráulica — Pão & Cia"] },
       u_pre_climasul: { capa: "g1", horario: "Seg–Sáb · 08h–18h", raio: 25, precoBase: 150, whatsapp: "(51) 99664-5000", instagram: "@climasul.pmoc", facebook: "climasulpmoc", portfolio: ["PMOC trimestral — Hotel Atlântico"] },
-      u_aut_carlos: { capa: "g0", horario: "Seg–Sáb · 08h–20h", raio: 15, precoBase: 120, whatsapp: "(51) 99922-1122", instagram: "@carlos.tech.torres", facebook: "carlostech", portfolio: ["Rede + Wi-Fi — Lojas Prisma", "Upgrade 8 PCs — Clínica Vitta"] },
+      u_aut_carlos: { capa: "g0", horario: "Seg–Sáb · 08h–20h", raio: 15, precoBase: 120, whatsapp: "(51) 99922-1122", instagram: "@carlos.tech.aurora", facebook: "carlostech", portfolio: ["Rede + Wi-Fi — Lojas Prisma", "Upgrade 8 PCs — Clínica Vitta"] },
       u_aut_joao: { capa: "g2", horario: "Seg–Sáb · 08h–18h", raio: 20, precoBase: 800, whatsapp: "(51) 99833-2233", instagram: "@joao.seguranca", facebook: "", portfolio: ["Kit 8 câmeras — Pão & Cia"] },
       u_aut_marina: { capa: "g1", horario: "Seg–Sáb · 08h–18h", raio: 15, precoBase: 150, whatsapp: "(51) 99744-3344", instagram: "@marina.clima", facebook: "marinaclima", portfolio: ["6 splits — Hotel Atlântico"] },
       u_aut_hidro: { capa: "g1", horario: "Seg–Sáb · 07h–19h", raio: 20, precoBase: 180, whatsapp: "(51) 99655-4455", instagram: "", facebook: "", portfolio: [] },
@@ -201,16 +242,16 @@
 
     /* --- solicitações: 10 (cobrindo todo o fluxo de status) --- */
     var requests = [
-      { id: "r1", empresaId: "u_emp_pao", servicoId: "s2", titulo: "Instalar 8 câmeras na loja", cat: "seguranca", desc: "Loja de 180m², 2 pavimentos. Preciso de DVR + acesso pelo celular.", local: "Torres/RS · Loja Centro", cidade: "Torres / RS", prazo: "até 20/09", dataDesejada: dayPlus(6), hora: "09:00", qtd: 8, orcamento: 0, status: "recebendo_propostas", criadoEm: isoPlus(-1) },
-      { id: "r2", empresaId: "u_emp_atlantico", servicoId: "s1", titulo: "Revisão de 6 splits do hotel", cat: "climatizacao", desc: "Higienização + recarga se necessário, com relatório PMOC.", local: "Torres/RS · Hotel Atlântico", cidade: "Torres / RS", prazo: "até 25/09", dataDesejada: dayPlus(4), hora: "09:00", qtd: 6, orcamento: 1500, status: "agendado", criadoEm: isoPlus(-3) },
-      { id: "r3", empresaId: "u_emp_pao", servicoId: "s4", titulo: "Troca de quadro elétrico da padaria", cat: "eletrica", desc: "Quadro antigo, disjuntores desarmando. Com ART.", local: "Torres/RS · Pão & Cia", cidade: "Torres / RS", prazo: "até 30/09", dataDesejada: dayPlus(-1), hora: "08:00", qtd: 1, orcamento: 3000, status: "em_andamento", criadoEm: isoPlus(-6) },
-      { id: "r4", empresaId: "u_emp_prisma", servicoId: "s2", titulo: "CFTV da filial Praia", cat: "seguranca", desc: "12 câmeras IP + NVR com rede dedicada para a filial da praia.", local: "Torres/RS · Filial Praia", cidade: "Torres / RS", prazo: "até 28/09", dataDesejada: dayPlus(9), hora: "08:00", qtd: 12, orcamento: 0, status: "recebendo_propostas", criadoEm: isoPlus(-1) },
-      { id: "r5", empresaId: "u_emp_vitta", servicoId: "s5", titulo: "Limpeza recorrente da clínica", cat: "limpeza", desc: "Limpeza 3x/semana dos consultórios e recepção, produtos inclusos.", local: "Torres/RS · Clínica Vitta", cidade: "Torres / RS", prazo: "início imediato", dataDesejada: dayPlus(2), hora: "07:00", qtd: 12, orcamento: 1100, status: "recebendo_propostas", criadoEm: isoPlus(-2) },
-      { id: "r6", empresaId: "u_emp_market", servicoId: "s6", titulo: "Vazamento na câmara fria", cat: "hidraulica", desc: "Vazamento no dreno da câmara fria, urgente — perda de mercadoria.", local: "Torres/RS · Market Sul", cidade: "Torres / RS", prazo: "urgente", dataDesejada: dayPlus(1), hora: "10:00", qtd: 1, orcamento: 400, status: "recebendo_propostas", criadoEm: isoPlus(0) },
-      { id: "r7", empresaId: "u_emp_prisma", servicoId: "s4", titulo: "Revisão elétrica Loja Centro", cat: "eletrica", desc: "Revisão geral do quadro + troca de 30 luminárias por LED.", local: "Torres/RS · Loja Centro", cidade: "Torres / RS", prazo: "outubro", dataDesejada: dayPlus(14), hora: "08:00", qtd: 1, orcamento: 4500, status: "solicitado", criadoEm: isoPlus(0) },
-      { id: "r8", empresaId: "u_emp_atlantico", servicoId: "s10", titulo: "Dedetização semestral", cat: "limpeza", desc: "Dedetização de cozinha, despensa e áreas comuns com certificado.", local: "Torres/RS · Hotel Atlântico", cidade: "Torres / RS", prazo: "concluído", dataDesejada: dayPlus(-12), hora: "08:00", qtd: 1, orcamento: 600, status: "concluido", criadoEm: isoPlus(-16) },
-      { id: "r9", empresaId: "u_emp_vitta", servicoId: "s3", titulo: "Upgrade de 8 computadores", cat: "tecnologia", desc: "Troca por SSD + memória em 8 máquinas da recepção.", local: "Torres/RS · Clínica Vitta", cidade: "Torres / RS", prazo: "concluído", dataDesejada: dayPlus(-20), hora: "09:00", qtd: 8, orcamento: 2400, status: "avaliado", criadoEm: isoPlus(-25) },
-      { id: "r10", empresaId: "u_emp_market", servicoId: "s11", titulo: "Pintura da fachada", cat: "manutencao", desc: "Fachada de 220m² com revitalização da marquise.", local: "Torres/RS · Market Sul", cidade: "Torres / RS", prazo: "outubro", dataDesejada: dayPlus(12), hora: "07:30", qtd: 220, orcamento: 8000, status: "proposta_aceita", criadoEm: isoPlus(-2) }
+      { id: "r1", empresaId: "u_emp_pao", servicoId: "s2", titulo: "Instalar 8 câmeras na loja", cat: "seguranca", desc: "Loja de 180m², 2 pavimentos. Preciso de DVR + acesso pelo celular.", local: "Vila Aurora · Loja Centro", cidade: "Vila Aurora", prazo: "até 20/09", dataDesejada: dayPlus(6), hora: "09:00", qtd: 8, orcamento: 0, status: "recebendo_propostas", criadoEm: isoPlus(-1) },
+      { id: "r2", empresaId: "u_emp_atlantico", servicoId: "s1", titulo: "Revisão de 6 splits do hotel", cat: "climatizacao", desc: "Higienização + recarga se necessário, com relatório PMOC.", local: "Vila Aurora · Hotel Atlântico", cidade: "Vila Aurora", prazo: "até 25/09", dataDesejada: dayPlus(4), hora: "09:00", qtd: 6, orcamento: 1500, status: "agendado", criadoEm: isoPlus(-3) },
+      { id: "r3", empresaId: "u_emp_pao", servicoId: "s4", titulo: "Troca de quadro elétrico da padaria", cat: "eletrica", desc: "Quadro antigo, disjuntores desarmando. Com ART.", local: "Vila Aurora · Pão & Cia", cidade: "Vila Aurora", prazo: "até 30/09", dataDesejada: dayPlus(-1), hora: "08:00", qtd: 1, orcamento: 3000, status: "em_andamento", criadoEm: isoPlus(-6) },
+      { id: "r4", empresaId: "u_emp_prisma", servicoId: "s2", titulo: "CFTV da filial Praia", cat: "seguranca", desc: "12 câmeras IP + NVR com rede dedicada para a filial da praia.", local: "Vila Aurora · Filial Praia", cidade: "Vila Aurora", prazo: "até 28/09", dataDesejada: dayPlus(9), hora: "08:00", qtd: 12, orcamento: 0, status: "recebendo_propostas", criadoEm: isoPlus(-1) },
+      { id: "r5", empresaId: "u_emp_vitta", servicoId: "s5", titulo: "Limpeza recorrente da clínica", cat: "limpeza", desc: "Limpeza 3x/semana dos consultórios e recepção, produtos inclusos.", local: "Vila Aurora · Clínica Vitta", cidade: "Vila Aurora", prazo: "início imediato", dataDesejada: dayPlus(2), hora: "07:00", qtd: 12, orcamento: 1100, status: "recebendo_propostas", criadoEm: isoPlus(-2) },
+      { id: "r6", empresaId: "u_emp_market", servicoId: "s6", titulo: "Vazamento na câmara fria", cat: "hidraulica", desc: "Vazamento no dreno da câmara fria, urgente — perda de mercadoria.", local: "Vila Aurora · Market Sul", cidade: "Vila Aurora", prazo: "urgente", dataDesejada: dayPlus(1), hora: "10:00", qtd: 1, orcamento: 400, status: "recebendo_propostas", criadoEm: isoPlus(0) },
+      { id: "r7", empresaId: "u_emp_prisma", servicoId: "s4", titulo: "Revisão elétrica Loja Centro", cat: "eletrica", desc: "Revisão geral do quadro + troca de 30 luminárias por LED.", local: "Vila Aurora · Loja Centro", cidade: "Vila Aurora", prazo: "outubro", dataDesejada: dayPlus(14), hora: "08:00", qtd: 1, orcamento: 4500, status: "solicitado", criadoEm: isoPlus(0) },
+      { id: "r8", empresaId: "u_emp_atlantico", servicoId: "s10", titulo: "Dedetização semestral", cat: "limpeza", desc: "Dedetização de cozinha, despensa e áreas comuns com certificado.", local: "Vila Aurora · Hotel Atlântico", cidade: "Vila Aurora", prazo: "concluído", dataDesejada: dayPlus(-12), hora: "08:00", qtd: 1, orcamento: 600, status: "concluido", criadoEm: isoPlus(-16) },
+      { id: "r9", empresaId: "u_emp_vitta", servicoId: "s3", titulo: "Upgrade de 8 computadores", cat: "tecnologia", desc: "Troca por SSD + memória em 8 máquinas da recepção.", local: "Vila Aurora · Clínica Vitta", cidade: "Vila Aurora", prazo: "concluído", dataDesejada: dayPlus(-20), hora: "09:00", qtd: 8, orcamento: 2400, status: "avaliado", criadoEm: isoPlus(-25) },
+      { id: "r10", empresaId: "u_emp_market", servicoId: "s11", titulo: "Pintura da fachada", cat: "manutencao", desc: "Fachada de 220m² com revitalização da marquise.", local: "Vila Aurora · Market Sul", cidade: "Vila Aurora", prazo: "outubro", dataDesejada: dayPlus(12), hora: "07:30", qtd: 220, orcamento: 8000, status: "proposta_aceita", criadoEm: isoPlus(-2) }
     ];
 
     /* --- propostas: 20 --- */
@@ -279,7 +320,7 @@
       { id: uid("n"), userId: "u_emp_pao", tipo: "proposta", titulo: "Nova proposta", texto: "João Segurança enviou proposta para “Instalar 8 câmeras”.", link: "#/app/solicitacao/r1", lida: false, criadoEm: isoPlus(0) },
       { id: uid("n"), userId: "u_emp_pao", tipo: "mensagem", titulo: "Nova mensagem", texto: "João Segurança: “Fechado! Levo as opções de câmeras…”.", link: "#/app/mensagens", lida: false, criadoEm: isoPlus(0) },
       { id: uid("n"), userId: "u_emp_atlantico", tipo: "agendado", titulo: "Agendamento confirmado", texto: "Manutenção de ar-condicionado com Marina Clima.", link: "#/app/agenda", lida: false, criadoEm: isoPlus(-1) },
-      { id: uid("n"), userId: "u_aut_joao", tipo: "oportunidade", titulo: "Nova oportunidade", texto: "CFTV da filial Praia — Torres/RS, orçamento aberto.", link: "#/app/oportunidades", lida: false, criadoEm: isoPlus(0) },
+      { id: uid("n"), userId: "u_aut_joao", tipo: "oportunidade", titulo: "Nova oportunidade", texto: "CFTV da filial Praia — Vila Aurora, orçamento aberto.", link: "#/app/oportunidades", lida: false, criadoEm: isoPlus(0) },
       { id: uid("n"), userId: "u_aut_carlos", tipo: "avaliacao", titulo: "Avaliação recebida", texto: "Você recebeu 5★ de Clínica Vitta.", link: "#/app/perfil", lida: false, criadoEm: isoPlus(-18) }
     ];
 
@@ -289,10 +330,10 @@
     ];
 
     return {
-      v: 6, users: users, services: services, requests: requests,
+      v: 11, users: users, services: services, requests: requests,
       proposals: proposals, schedules: schedules, reviews: reviews,
       convs: convs, msgs: msgs, notifs: notifs, favs: favs, products: products,
-      cart: { lojaId: null, items: [] }, orders: [],
+      cart: { items: [] }, orders: [],
       session: null, seededAt: new Date().toISOString()
     };
   }
@@ -305,10 +346,11 @@
         if (!raw) { var d = seed(); localStorage.setItem(KEY, JSON.stringify(d)); return d; }
         var db = JSON.parse(raw);
         if (!db || !db.users) { var d2 = seed(); localStorage.setItem(KEY, JSON.stringify(d2)); return d2; }
-        if (db.v === 1 || db.v === 2 || db.v === 3 || db.v === 4 || db.v === 5) { db = migrate(db); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (_) {} return db; }
-        if (db.v !== 6) { var d3 = seed(); localStorage.setItem(KEY, JSON.stringify(d3)); return d3; }
+        if (db.v >= 1 && db.v <= 10) { db = migrate(db); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (_) {} return db; }
+        if (db.v !== 11) { var d3 = seed(); localStorage.setItem(KEY, JSON.stringify(d3)); return d3; }
         if (!db.products) db.products = [];
-        if (!db.cart) db.cart = { lojaId: null, items: [] };
+        if (!db.cart) db.cart = { items: [] };
+        if (!db.cart.items) db.cart.items = [];
         if (!db.orders) db.orders = [];
         return db;
       } catch (e) {
