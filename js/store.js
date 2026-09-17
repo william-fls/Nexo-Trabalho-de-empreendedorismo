@@ -35,7 +35,7 @@
      público (#/perfil/:id). Todos opcionais; preços 0 = "a combinar". */
   var CAPAS = ["g0", "g1", "g2", "g3", "g4", "g5"];
   function storeDefaults(u, i) {
-    if (!u || u.tipo === "empresa") return u;
+    if (!u || u.tipo === "empresa" || u.tipo === "cliente") return u;
     if (u.disponibilidade == null) u.disponibilidade = "semana";
     if (u.capa == null) u.capa = CAPAS[(i || 0) % CAPAS.length];
     if (u.horario == null) u.horario = "Seg–Sáb · 08h–18h";
@@ -52,9 +52,11 @@
      v7 -> cidade fictícia Vila Aurora + importa lojas demo que faltam;
      v8 -> disponibilidade padrão; v9 -> sacola multi-loja;
      v10 -> restaura categorias do seed em produtos sem cat;
-     v11 -> restaura também sobre "Geral" e re-deriva o menu. Nunca apaga dados locais. */
+     v11 -> restaura também sobre "Geral" e re-deriva o menu;
+     v12 -> conta demo de pessoa física (cliente);
+     v13 -> pedido dirigido (request.prestId; null = legado aberto). Nunca apaga dados locais. */
   function migrate(db) {
-    db.users.forEach(function (u, i) { if (u.tipo !== "empresa") storeDefaults(u, i); });
+    db.users.forEach(function (u, i) { if (u.tipo !== "empresa" && u.tipo !== "cliente") storeDefaults(u, i); });
     if (!db.products) db.products = [];
     if (!db.cart) db.cart = { items: [] };
     if (!db.orders) db.orders = [];
@@ -99,7 +101,12 @@
       if (!exists) db.products.push(JSON.parse(JSON.stringify(sp)));
     });
     renameCity(db);
-    db.v = 11;
+    /* Conta demo de pessoa física (cliente) em bases antigas. */
+    var cli = seedCliente("demo1234");
+    if (!db.users.some(function (x) { return x.id === cli.id; })) db.users.push(JSON.parse(JSON.stringify(cli)));
+    /* Pedido dirigido em bases antigas (null = legado aberto). */
+    db.requests.forEach(function (r) { if (!("prestId" in r)) r.prestId = null; });
+    db.v = 13;
     return db;
   }
   /* Campos exclusivos do mini-site da loja (tipo "loja"). */
@@ -125,6 +132,11 @@
       });
     });
     return db;
+  }
+  /* Conta demo de pessoa física (compra nas lojas + solicita serviços).
+     Usada pelo seed e pela migração para importar em bases antigas. */
+  function seedCliente(PASS) {
+    return { id: "u_cli_maria", tipo: "cliente", nome: "Maria Silva", email: "cliente@demo.com", senha: PASS, doc: "987.654.321-00", cidade: "Vila Aurora", telefone: "(51) 99900-1122", descricao: "Cliente da Nexo — compras nas lojas e contratação de serviços.", cor: "#0F766E", verificado: false, jobs: 0, dist: 1.5 };
   }
   /* Lojas demo completas (vitrine + catálogo). Usado pelo seed e pela
      migração para importar lojas que faltam em bases antigas. */
@@ -164,6 +176,8 @@
       { id: "u_emp_pao", tipo: "empresa", nome: "Padaria Pão & Cia", email: "paoecia@mail.com", senha: PASS, doc: "34.567.890/0001-12", cidade: "Vila Aurora", telefone: "(51) 99722-4411", descricao: "Padaria artesanal no Centro, fornos industriais e salão.", cor: "#B45309", verificado: true },
       { id: "u_emp_vitta", tipo: "empresa", nome: "Clínica Vitta", email: "vitta@mail.com", senha: PASS, doc: "45.678.901/0001-23", cidade: "Vila Aurora", telefone: "(51) 99633-5511", descricao: "Clínica multidisciplinar com 12 consultórios.", cor: "#0E9F6E", verificado: true },
       { id: "u_emp_market", tipo: "empresa", nome: "Market Sul", email: "marketsul@mail.com", senha: PASS, doc: "56.789.012/0001-34", cidade: "Vila Aurora", telefone: "(51) 99544-6611", descricao: "Supermercado de bairro com câmaras frias e estacionamento.", cor: "#6D28D9", verificado: true },
+      /* --- pessoa física (1) --- */
+      seedCliente(PASS),
       /* --- empresas prestadoras (5) --- */
       { id: "u_pre_eletrosul", tipo: "prestadora", nome: "Eletro Sul Comercial", email: "eletrosul@demo.com", senha: PASS, doc: "67.890.123/0001-45", cidade: "Porto Alto", telefone: "(51) 3664-1000", descricao: "Elétrica predial e comercial com equipe NR-10/NR-35 e emissão de ART.", especialidades: ["Elétrica", "Manutenção"], disponibilidade: "Seg–Sáb", cor: "#6D28D9", verificado: true },
       { id: "u_pre_limpa", tipo: "prestadora", nome: "Limpa Forte", email: "limpaforte@mail.com", senha: PASS, doc: "78.901.234/0001-56", cidade: "Vila Aurora", telefone: "(51) 3664-2000", descricao: "Equipe de 8 profissionais para limpeza comercial recorrente e pós-obra.", especialidades: ["Limpeza"], disponibilidade: "Seg–Dom", cor: "#BE123C", verificado: true },
@@ -254,6 +268,9 @@
       { id: "r10", empresaId: "u_emp_market", servicoId: "s11", titulo: "Pintura da fachada", cat: "manutencao", desc: "Fachada de 220m² com revitalização da marquise.", local: "Vila Aurora · Market Sul", cidade: "Vila Aurora", prazo: "outubro", dataDesejada: dayPlus(12), hora: "07:30", qtd: 220, orcamento: 8000, status: "proposta_aceita", criadoEm: isoPlus(-2) }
     ];
 
+    /* Pedidos legados: abertos (sem empresa dirigida). */
+    requests.forEach(function (r) { r.prestId = null; });
+
     /* --- propostas: 20 --- */
     var proposals = [
       { id: "pp1", reqId: "r1", prestId: "u_aut_joao", valor: 800, dataDisp: dayPlus(3), prazo: "1 dia", msg: "Kit 8 câmeras Full HD, DVR 16 canais, instalação em 1 dia + garantia 12 meses.", garantia: "12 meses", status: "pendente", criadoEm: isoPlus(-1) },
@@ -330,7 +347,7 @@
     ];
 
     return {
-      v: 11, users: users, services: services, requests: requests,
+      v: 13, users: users, services: services, requests: requests,
       proposals: proposals, schedules: schedules, reviews: reviews,
       convs: convs, msgs: msgs, notifs: notifs, favs: favs, products: products,
       cart: { items: [] }, orders: [],
@@ -346,8 +363,8 @@
         if (!raw) { var d = seed(); localStorage.setItem(KEY, JSON.stringify(d)); return d; }
         var db = JSON.parse(raw);
         if (!db || !db.users) { var d2 = seed(); localStorage.setItem(KEY, JSON.stringify(d2)); return d2; }
-        if (db.v >= 1 && db.v <= 10) { db = migrate(db); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (_) {} return db; }
-        if (db.v !== 11) { var d3 = seed(); localStorage.setItem(KEY, JSON.stringify(d3)); return d3; }
+        if (db.v >= 1 && db.v <= 12) { db = migrate(db); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (_) {} return db; }
+        if (db.v !== 13) { var d3 = seed(); localStorage.setItem(KEY, JSON.stringify(d3)); return d3; }
         if (!db.products) db.products = [];
         if (!db.cart) db.cart = { items: [] };
         if (!db.cart.items) db.cart.items = [];

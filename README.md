@@ -8,21 +8,20 @@ Projeto front-end puro (sem build, sem framework) com site público + painel fun
 
 ## ✨ O que o projeto faz
 
-**Site público (`#/`):**
-- Home com busca, portas Lojas/Serviços e lista de destaques
-- Explorar (`#/explorar`) — serviços, lojas e profissionais com filtro por tipo, texto, categoria, distância, avaliação e preço
+**Site público:**
+- Explorar (`#/explorar`, tela inicial) — serviços, lojas e profissionais com filtro por tipo, texto, categoria, distância, avaliação e preço
 - Perfil público (`#/perfil/:id`) — loja (vitrine, catálogo, info) ou prestador (serviços, info)
 - Sacola (`#/carrinho`) com checkout e Nexo Pay (demo)
 - Páginas institucionais: Como funciona, Para empresas
-- Login e Cadastro com 4 perfis: Empresa, Prestadora, Autônomo e Loja
+- Login e Cadastro com 5 perfis: Pessoa física, Empresa, Prestadora, Autônomo e Loja
 
 **Painel logado (`#/app/*`):**
 - Dashboard diferente para contratante vs. prestador (KPIs, próximos serviços, gastos, oportunidades)
-- Solicitações / Oportunidades com filtro por status
-- Detalhe da solicitação com timeline, tabela comparativa de propostas, aceitar/recusar
-- Nova solicitação (página + modal) com validação
+- Meus pedidos / Oportunidades com filtro por status (pedidos dirigidos aguardam confirmação da empresa)
+- Detalhe do pedido com timeline, confirmação/recusa (empresa) e propostas legadas com aceitar/recusar
+- Meus serviços: a prestadora/autônomo cadastra o que faz (o cliente pede direto dali)
 - Agenda (dia / semana / lista), Mensagens (chat), Favoritos, Notificações, Meu Perfil
-- Fluxo completo: `solicitado → recebendo_propostas → proposta_aceita → agendado → em_andamento → concluido → avaliado`
+- Fluxo do pedido dirigido: `solicitado (aguardando empresa) → agendado → em_andamento → concluido → avaliado`
 
 ## 🗂️ Estrutura
 
@@ -65,16 +64,17 @@ Senha de todas as contas: `demo1234`
 
 | Perfil | E-mail | Uso |
 |---|---|---|
-| 🏢 Empresa | `empresa@demo.com` | Contratar, publicar pedidos, aceitar propostas |
+| 🧑 Pessoa física | `cliente@demo.com` | Comprar, pedir serviços (a empresa confirma) |
+| 🏢 Empresa | `empresa@demo.com` | Contratar, pedir serviços, acompanhar pedidos |
 | 👤 Autônomo | `carlos@demo.com` | Enviar propostas, agenda, chat |
 | 🛠 Prestadora | `eletrosul@demo.com` | Mesmo fluxo de prestador, com equipe |
 | 🏪 Loja | `loja@demo.com` | Vitrine + catálogo (Veste Aurora), e contrata como empresa |
 | 🐾 Pet | `pet@demo.com` | Vitrine + catálogo (Casa & Cia Pet) |
 | 💊 Essência | `essencia@demo.com` | Vitrine + catálogo (Essência & Cuidado) |
 
-Ou use na tela de login os botões **Acesso demo**: Empresa / Autônomo / Prestadora / Loja / Pet / Essência.
+Ou use na tela de login os botões **Acesso demo**: Pessoa física / Empresa / Autônomo / Prestadora / Loja / Pet / Essência.
 
-Seed inclui: 23 usuários, 15 serviços, 15 produtos, 10 solicitações, 20 propostas, 6 agendamentos, 8 avaliações, 3 conversas e notificações.
+Seed inclui: 24 usuários, 15 serviços, 15 produtos, 10 solicitações (legado aberto), 20 propostas, 6 agendamentos, 8 avaliações, 3 conversas e notificações.
 
 ## 🛒 Sacola e pagamento (demo)
 
@@ -85,12 +85,12 @@ Seed inclui: 23 usuários, 15 serviços, 15 produtos, 10 solicitações, 20 prop
 ## 🧭 Rotas
 
  Públicas:
-- `#/` home · `#/explorar` · `#/perfil/:id` · `#/carrinho` (`#/buscar` e `#/profissionais` redirecionam para `#/explorar`)
+- `#/explorar` (inicial) · `#/perfil/:id` · `#/carrinho` (`#/`, `#/buscar` e `#/profissionais` redirecionam para `#/explorar`)
 - `#/como-funciona` · `#/para-empresas` · `#/login` · `#/cadastro`
 
  Painel (requer login):
-- `#/app/dashboard` · `#/app/solicitacoes` · `#/app/oportunidades`
-- `#/app/solicitacao/:id` · `#/app/nova` · `#/app/agenda`
+- `#/app/dashboard` · `#/app/solicitacoes` · `#/app/oportunidades` · `#/app/servicos`
+- `#/app/solicitacao/:id` · `#/app/agenda`
 - `#/app/mensagens` · `#/app/favoritos` · `#/app/notificacoes` · `#/app/perfil`
 
 ## 💾 Dados e reset

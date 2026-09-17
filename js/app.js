@@ -60,9 +60,10 @@ function isProv(u) { return !!u && (u.tipo === "autonomo" || u.tipo === "prestad
 function isLabor(u) { return !!u && (u.tipo === "autonomo" || u.tipo === "prestadora"); }
 function isEmp(u) { return !!u && u.tipo === "empresa"; }
 function isLoja(u) { return !!u && u.tipo === "loja"; }
-function canContract(u) { return isEmp(u) || isLoja(u); }
+function isCliente(u) { return !!u && u.tipo === "cliente"; }
+function canContract(u) { return isEmp(u) || isLoja(u) || isCliente(u); }
 function hasStore(u) { return isProv(u) || isLoja(u); }
-function tipoLabel(t) { return t === "empresa" ? "Empresa contratante" : t === "prestadora" ? "Empresa prestadora" : t === "loja" ? "Loja / Comércio local" : "Profissional autônomo"; }
+function tipoLabel(t) { return t === "empresa" ? "Empresa contratante" : t === "prestadora" ? "Empresa prestadora" : t === "loja" ? "Loja / Comércio local" : t === "cliente" ? "Pessoa física" : "Profissional autônomo"; }
 function favKind(u) { return !u ? "empresa" : u.tipo === "autonomo" ? "profissional" : u.tipo === "loja" ? "loja" : "empresa"; }
 
 function ratingOf(uid_) {
@@ -148,28 +149,28 @@ function route() {
   var r = parseHash(), segs = r.segs, q = r.q;
   window.scrollTo(0, 0);
   closeModal(); hidePop();
-  if (segs[0] === "profissionais" || segs[0] === "buscar") { location.hash = "#/explorar"; return; }
+  if (segs[0] === "profissionais" || segs[0] === "buscar" || !segs[0]) { location.hash = "#/explorar"; return; }
   if (segs[0] === "app") { showApp(); renderApp(segs.slice(1).join("/") || "dashboard"); }
   else {
     showPublic();
-    var v = segs[0] || "home";
+    var v = segs[0] || "explorar";
     if (v === "explorar") renderBuscar(q);
     else if (v === "perfil") renderPerfil(segs[1]);
     else if (v === "carrinho") renderCarrinho();
     else if (v === "login") { touchSteps(1); }
     else if (v === "cadastro") prepCadastro(q);
-    showView(v === "home" ? "view-home" : "view-" + v);
+    showView("view-" + v);
   }
   paintChrome();
   $all(".nav-desktop a").forEach(function (a) {
     var href = a.getAttribute("href") || "";
-    a.classList.toggle("active", href === "#/" + (segs[0] || "") || (href === "#/" && !segs.length));
+    a.classList.toggle("active", href === "#/" + (segs[0] || ""));
   });
 }
 function showView(id) {
   var ok = !!document.getElementById(id);
   $all("#publicZone .view").forEach(function (v) { v.hidden = v.id !== id; });
-  if (!ok) { $("#view-home").hidden = false; }
+  if (!ok) { $("#view-explorar").hidden = false; }
 }
 function showPublic() {
   $("#publicZone").hidden = false;
@@ -188,12 +189,18 @@ function paintChrome() {
   var u = me(), ha = $(".header-actions");
   if (ha) {
     if (!HEADER_DEFAULT) HEADER_DEFAULT = ha.innerHTML;
-    ha.innerHTML = u
-      ? '<a href="#/carrinho" class="icon-btn bell" aria-label="Sacola">🛒<em id="cartCount" style="display:none">0</em></a>' +
-        '<a href="#/app/dashboard" class="btn btn-secondary btn-sm">Abrir painel</a>' +
+    if (u) {
+      var tgt = swapTarget();
+      var swapTitle = tgt ? "Trocar para " + tgt.nome + " (" + tipoLabel(tgt.tipo) + ")" : "Trocar de conta (demo)";
+      ha.innerHTML =
+        '<a href="#/carrinho" class="icon-btn bell" aria-label="Sacola">🛒<em id="cartCount" style="display:none">0</em></a>' +
+        '<button class="icon-btn swap-btn" onclick="Nexo.switchAccount()" title="' + esc(swapTitle) + '" aria-label="Trocar de conta (demo)">⇄</button>' +
+        '<a href="#/app/dashboard" class="btn btn-secondary btn-sm btn-open-panel">Abrir painel</a>' +
         '<button class="avatar-btn" data-route="perfil" title="' + esc(u.nome) + '">' + esc(initials(u.nome)) + "</button>" +
-        '<button class="icon-btn hamburger" id="openMenu" aria-label="Abrir menu" style="display:inline-flex">☰</button>'
-      : HEADER_DEFAULT;
+        '<button class="icon-btn hamburger" id="openMenu" aria-label="Abrir menu" style="display:inline-flex">☰</button>';
+    } else {
+      ha.innerHTML = HEADER_DEFAULT;
+    }
   }
   var wsN = $("#wsName"), wsR = $("#wsRole"), av = $(".avatar-btn");
   if (u) {
@@ -232,7 +239,7 @@ function svcCard(s) {
       return '<a class="badge" href="#/perfil/' + p.id + '">' + esc(p.nome.split(" ")[0]) + " ★ " + (ratingOf(p.id).t ? ratingOf(p.id).m.toFixed(1).replace(".", ",") : "novo") + "</a>";
     }).join("") + "</div>" +
     '<div class="svc-foot"><strong>' + esc(s.precoLabel) + '</strong><span class="row" style="gap:.4rem"><button class="fav' + (fav ? " on" : "") + '" onclick="Nexo.fav(\'servico\',\'' + s.id + "')\" aria-label=\"Favoritar\">" + (fav ? "❤️" : "🤍") + "</button>" +
-    '<button class="btn btn-secondary btn-xs" onclick="Nexo.svcModal(\'' + s.id + '\')">Ver</button><button class="btn btn-primary btn-xs" onclick="Nexo.openRequest(\'' + s.id + '\')">Solicitar</button></span></div></div></article>';
+    '<button class="btn btn-secondary btn-xs" onclick="Nexo.svcModal(\'' + s.id + '\')">Ver</button><button class="btn btn-primary btn-xs" onclick="Nexo.askService(\'' + s.id + '\')">Pedir</button></span></div></div></article>';
 }
 function proCard(p) {
   var r = ratingOf(p.id), on = (p.disponibilidade === "hoje"), fk = favKind(p), fav = isFav(fk, p.id);
@@ -245,6 +252,7 @@ function proCard(p) {
     '<div class="row"><a class="btn btn-secondary btn-sm" href="#/perfil/' + p.id + '">Ver perfil</a><button class="btn btn-primary btn-sm" onclick="Nexo.talk(\'' + p.id + "')\">Conversar</button></div></article>";
 }
 function providers() { return db.users.filter(isProv); }
+function professionals() { return db.users.filter(isLabor); }
 function shops() { return db.users.filter(function (u) { return u.tipo === "loja"; }); }
 var SHOP_CATS = [
   { id: "Moda", name: "Moda", icon: "👗" },
@@ -283,7 +291,7 @@ function menuHTML(u) {
     cats.map(function (c, i) { return menuRowHTML("sec-" + i, c, prods.filter(function (p) { return (p.cat || "Geral") === c; }), u); }).join("") +
     "</div></div>";
 }
-var HOME_TAB = "lojas", FTIPO = "todos";
+var FTIPO = "todos";
 function openNow(p) { return !!p && p.disponibilidade === "hoje"; }
 function coverClass(u) { return "cover-" + ((u && u.capa) || "g0"); }
 function storePrice(u) { return u && u.precoBase > 0 ? "A partir de " + BRL(u.precoBase) : "A combinar"; }
@@ -348,26 +356,6 @@ function shopPriceMatch(p) {
 }
 function byRating(a, b) { return ((ratingOf(b.id).m || 0) - (ratingOf(a.id).m || 0)) || ((a.dist || 99) - (b.dist || 99)); }
 
-function renderHome() {
-  var isShop = HOME_TAB === "lojas";
-  var doors = $("#homeDoors");
-  if (doors) doors.innerHTML =
-    '<button class="door' + (isShop ? " active" : "") + '" onclick="Nexo.homeTab(\'lojas\')"><i>🏪</i><strong>Lojas</strong><small>Compre do comércio local</small></button>' +
-    '<button class="door' + (!isShop ? " active" : "") + '" onclick="Nexo.homeTab(\'servicos\')"><i>🛠</i><strong>Serviços</strong><small>Contrate prestadores</small></button>';
-  var base = isShop ? shops() : providers();
-  var open = base.filter(openNow).sort(byRating);
-  var rest = base.filter(function (p) { return !openNow(p); }).sort(byRating);
-  var list = open.concat(rest);
-  var onEl = $("#homeOpenNow");
-  if (onEl) onEl.textContent = "● " + open.length + (isShop ? " loja(s) aberta(s) agora" : " prestador(es) hoje");
-  var eb = $("#storesEyebrow");
-  if (eb) eb.textContent = isShop ? "Comércio local" : "Rede verificada";
-  $("#storesTitle").textContent = isShop ? "Lojas em Vila Aurora" : "Prestadores em Vila Aurora";
-  $("#storesCount").textContent = "Toque para ver " + (isShop ? "a vitrine" : "o perfil") + " · " + list.length + " no total";
-  $("#homeStores").innerHTML = list.length ? list.map(storeCard).join("")
-    : '<div class="empty"><div class="empty-art">🏪</div><h3>Nada por aqui ainda</h3><p class="muted">Publique sua necessidade e receba propostas.</p><button class="btn btn-primary" data-open-request>Publicar necessidade</button></div>';
-}
-
 /* ----- buscar (pesquisa funcional, sem reload) ----- */
 var F = { q: "", cats: {}, loc: "", dist: 15, rating: 4.5, price: "", date: "", avail: true, sort: "relevance" };
 function renderBuscar(q) {
@@ -423,7 +411,7 @@ function applySearch() {
     if (F.sort === "rating") return svcRating(b).m - svcRating(a).m;
     return (svcRating(b).m * 2 - b.dist * 0.05) - (svcRating(a).m * 2 - a.dist * 0.05);
   });
-  var pros = showSvcs ? providers().filter(function (p) { return proMatch(p) && peopleMatch(p); }).sort(byRating).slice(0, 6) : [];
+  var pros = showSvcs ? professionals().filter(function (p) { return proMatch(p) && peopleMatch(p); }).sort(byRating).slice(0, 6) : [];
   var foundShops = showShops ? shops().filter(function (p) { return shopMatch(p) && peopleMatch(p) && shopPriceMatch(p); }) : [];
   $("#searchTitle").textContent = F.q ? "Resultados para “" + F.q + "”" : "Explorar Vila Aurora";
   $("#searchCount").textContent = svcs.length + " serviço(s) · " + foundShops.length + " loja(s)" + (F.q && showSvcs ? " · " + pros.length + " profissional(is)" : "") + " · atualiza automaticamente";
@@ -434,8 +422,8 @@ function applySearch() {
   if (isShowcase) {
     var openAll = providers().concat(shops()).filter(openNow).sort(byRating).slice(0, 6);
     if (openAll.length) html += "<h3>🔥 Abertas agora</h3><div class='store-list' style='margin-bottom:1.4rem'>" + openAll.map(storeCard).join("") + "</div>";
-    var topRated = db.services.slice().sort(function (a, b) { return svcRating(b).m - svcRating(a).m; }).slice(0, 4);
-    html += "<h3>★ Bem avaliados</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + topRated.map(svcCard).join("") + "</div>";
+    var topRated = db.users.filter(isLabor).sort(byRating).slice(0, 4);
+    html += "<h3>★ Bem avaliados</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + topRated.map(proCard).join("") + "</div>";
   }
   if (svcs.length) html += "<h3>Serviços</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + svcs.map(svcCard).join("") + "</div>";
   if (foundShops.length) html += "<h3>Lojas</h3><div class='store-list' style='margin-bottom:1.4rem'>" + foundShops.map(storeCard).join("") + "</div>";
@@ -516,10 +504,13 @@ function renderPerfil(id) {
     body = infoHTML(u, revs, isShop);
   }
   var fk = favKind(u), favOn = isFav(fk, u.id);
-  var ctaRow = (isShop && waTop)
+  var isMe = me() && me().id === u.id;
+  var ctaRow = isMe
+    ? '<a class="btn btn-primary" href="#/app/perfil">Editar meu perfil</a>'
+    : (isShop && waTop)
     ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + waTop + '">' + waIcon() + ' Chamar no WhatsApp</a>'
-    : '<button class="btn btn-primary" onclick="Nexo.openRequest(\'\',\'' + u.id + '\')">Solicitar serviço</button>';
-  ctaRow += '<button class="btn btn-secondary" onclick="Nexo.talk(\'' + u.id + "')\">Conversar</button>" +
+    : '<button class="btn btn-primary" onclick="Nexo.askService(\'\',\'' + u.id + '\')">Pedir serviço</button>';
+  if (!isMe) ctaRow += '<button class="btn btn-secondary" onclick="Nexo.talk(\'' + u.id + "')\">Conversar</button>" +
     '<button class="fav' + (favOn ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + u.id + "')\">" + (favOn ? "❤️ Salvo" : "🤍 Salvar") + "</button>";
   var midTab = isShop
     ? '<button class="' + (PTAB === "catalogo" ? "active" : "") + '" onclick="Nexo.ptab(\'catalogo\')">Catálogo (' + myProds.length + ")</button>"
@@ -552,12 +543,12 @@ function touchSteps(n) {
   $all("#signupSteps span").forEach(function (s, i) { s.classList.toggle("on", i < n); });
 }
 function prepCadastro(q) {
-  var map = { prestador: "prestadora", empresa: "empresa", autonomo: "autonomo", loja: "loja" };
+  var map = { prestador: "prestadora", empresa: "empresa", autonomo: "autonomo", loja: "loja", cliente: "cliente" };
   if (q.tipo && map[q.tipo]) signupTipo = map[q.tipo];
   $all("#signupRoles .role").forEach(function (b) {
     b.classList.toggle("active", b.getAttribute("data-role") === (signupTipo === "prestadora" ? "prestador" : signupTipo));
   });
-  $("#suExtra").hidden = signupTipo === "empresa" || signupTipo === "loja";
+  $("#suExtra").hidden = signupTipo === "empresa" || signupTipo === "loja" || signupTipo === "cliente";
   touchSteps(1);
 }
 function doLogin(email, senha) {
@@ -565,6 +556,31 @@ function doLogin(email, senha) {
   if (!u) return null;
   db.session = u.id; save(); paintChrome();
   return u;
+}
+/* ----- troca rápida de conta (demo) -----
+   Alterna entre Pessoa física (compra + solicita, ex.: Maria Silva)
+   e Empresa (ex.: Lojas Prisma). Sem logout,
+   sem tocar localStorage direto: usa db + save(). */
+var DEMO_SWAP = ["u_cli_maria", "u_emp_prisma"];
+function swapTarget() {
+  var u = me();
+  if (!u) return userById(DEMO_SWAP[0]);
+  if (u.id === DEMO_SWAP[0]) return userById(DEMO_SWAP[1]);
+  if (u.id === DEMO_SWAP[1]) return userById(DEMO_SWAP[0]);
+  if (u.tipo === "cliente") return userById(DEMO_SWAP[1]) || db.users.filter(isEmp)[0] || null;
+  if (u.tipo === "empresa") return userById(DEMO_SWAP[0]) || db.users.filter(isCliente)[0] || null;
+  return userById(DEMO_SWAP[0]) || db.users.filter(isCliente)[0] || null;
+}
+function doSwap(id) {
+  var target = id ? userById(id) : swapTarget();
+  if (!target) { toast("Conta demo não encontrada. Restaure a demo."); return null; }
+  if (me() && me().id === target.id) { toast("Você já está como " + target.nome.split(" ")[0] + "."); return target; }
+  db.session = target.id; CHAT = null; save(); paintChrome();
+  try { paintSide(curRoute()); } catch (_) {}
+  toast("Agora você é " + target.nome.split(" ")[0] + " (" + tipoLabel(target.tipo) + ").");
+  if (location.hash === "#/app/dashboard") renderApp("dashboard");
+  else location.hash = "#/app/dashboard";
+  return target;
 }
 function bindAuth() {
   $all("#view-login .role").forEach(function (b) {
@@ -577,6 +593,7 @@ function bindAuth() {
   demoBox.className = "row";
   demoBox.style.margin = ".4rem 0 .8rem";
   demoBox.innerHTML = "<span class='muted' style='font-size:.82rem'>Acesso demo:</span>" +
+    "<button class='btn btn-secondary btn-xs' data-demo='cliente@demo.com'>🧑 Pessoa física</button>" +
     "<button class='btn btn-secondary btn-xs' data-demo='empresa@demo.com'>🏢 Empresa</button>" +
     "<button class='btn btn-secondary btn-xs' data-demo='carlos@demo.com'>👤 Autônomo</button>" +
     "<button class='btn btn-secondary btn-xs' data-demo='eletrosul@demo.com'>🛠 Prestadora</button>" +
@@ -606,7 +623,7 @@ function bindAuth() {
       var r = b.getAttribute("data-role");
       signupTipo = r === "prestador" ? "prestadora" : r;
       $all("#signupRoles .role").forEach(function (x) { x.classList.toggle("active", x === b); });
-      $("#suExtra").hidden = signupTipo === "empresa" || signupTipo === "loja";
+      $("#suExtra").hidden = signupTipo === "empresa" || signupTipo === "loja" || signupTipo === "cliente";
       touchSteps(2);
     });
   });
@@ -624,8 +641,8 @@ function bindAuth() {
     var palette = ["#1D4ED8", "#0E7490", "#6D28D9", "#0F766E", "#BE123C", "#B45309"];
     var u = {
       id: NexoStore.uid("u"), tipo: signupTipo, nome: nome, email: email, senha: pw, doc: doc,
-      cidade: city, telefone: "",       descricao: signupTipo === "empresa" ? "Empresa contratante na Nexo." : signupTipo === "loja" ? "Loja na Nexo. Edite sua vitrine e catálogo em Minha loja." : "Prestador de serviços na Nexo.",
-      especialidades: signupTipo === "empresa" ? [] : signupTipo === "loja" ? ["Comércio local"] : ["Serviços gerais"],
+      cidade: city, telefone: "",       descricao: signupTipo === "empresa" ? "Empresa contratante na Nexo." : signupTipo === "loja" ? "Loja na Nexo. Edite sua vitrine e catálogo em Minha loja." : signupTipo === "cliente" ? "Cliente da Nexo — compras e serviços." : "Prestador de serviços na Nexo.",
+      especialidades: signupTipo === "empresa" || signupTipo === "cliente" ? [] : signupTipo === "loja" ? ["Comércio local"] : ["Serviços gerais"],
       disponibilidade: "semana", cor: palette[db.users.length % palette.length],
       verificado: false, jobs: 0, dist: 3
     };
@@ -663,13 +680,14 @@ function openRecover() {
 /* ================================================================
    PAINEL (APP)
    ================================================================ */
-var CHAT = null, AGV = "lista", REQSEG = "todas";
+var CHAT = null, AGV = "lista", REQSEG = "todas", CHATBACK = true;
 
 function openOrders(u) { return u && u.tipo === "loja" ? (db.orders || []).filter(function (o) { return o.lojaId === u.id && ["pago", "enviado"].indexOf(o.status) >= 0; }).length : 0; }
 var SIDE = [
   { r: "dashboard", icon: "🏠", label: "Início" },
   { r: "solicitacoes", icon: "📋", label: "Meus pedidos", show: function () { return canContract(me()); }, count: function () { var u = me(); return u && canContract(u) ? db.requests.filter(function (x) { return x.empresaId === u.id && ["solicitado", "recebendo_propostas"].indexOf(x.status) >= 0; }).length : 0; } },
-  { r: "oportunidades", icon: "🎯", label: "Oportunidades", show: function () { return isProv(me()); }, count: function () { var u = me(); return u && isProv(u) ? db.requests.filter(function (x) { return ["solicitado", "recebendo_propostas"].indexOf(x.status) >= 0; }).length : 0; } },
+  { r: "oportunidades", icon: "🎯", label: "Oportunidades", show: function () { return isProv(me()); }, count: function () { var u = me(); if (!u || !isProv(u)) return 0; var open = db.requests.filter(function (x) { return ["solicitado", "recebendo_propostas"].indexOf(x.status) >= 0; }).length; var pend = db.requests.filter(function (x) { return x.prestId === u.id && x.status === "solicitado"; }).length; return open + pend; } },
+  { r: "servicos", icon: "🛠", label: "Meus serviços", show: function () { return isLabor(me()); } },
   { r: "pedidos", icon: "🧾", label: "Pedidos recebidos", show: function () { return isLoja(me()); }, count: function () { return openOrders(me()); } },
   { r: "produtos", icon: "🏷", label: "Meu catálogo", show: function () { return isLoja(me()); } },
   { r: "agenda", icon: "📅", label: "Agenda" },
@@ -699,7 +717,6 @@ function paintSide(cur) {
   else bn = [
     { r: "dashboard", icon: "🏠", label: "Painel" },
     { r: "solicitacoes", icon: "📋", label: "Pedidos" },
-    { r: "nova", icon: "＋", label: "Novo" },
     { r: "agenda", icon: "📅", label: "Agenda" },
     { r: "mensagens", icon: "💬", label: "Chat" + (unreadMsgs() ? " (" + unreadMsgs() + ")" : "") }
   ];
@@ -716,7 +733,9 @@ function timelineHTML(status) {
 function reqItemHTML(r) {
   var n = proposalsOf(r.id).length, emp = userById(r.empresaId) || {};
   return '<div class="req-item"><div class="req-item-top"><strong>' + esc(r.titulo) + '</strong><span class="status ' + (STATUS_CL[r.status] || "") + '">' + STATUS_LB[r.status] + "</span>" +
-    '<span class="muted" style="margin-left:auto;font-size:.8rem">💬 ' + n + " proposta(s)</span></div>" +
+    (r.prestId
+      ? '<span class="muted" style="margin-left:auto;font-size:.8rem">' + (r.status === "solicitado" ? "⏳ aguardando confirmação" : "✔ " + esc(STATUS_LB[r.status] || r.status)) + "</span>"
+      : '<span class="muted" style="margin-left:auto;font-size:.8rem">💬 ' + n + " proposta(s)</span>") + "</div>" +
     '<p class="muted" style="margin:0;font-size:.9rem">' + esc(r.desc.slice(0, 140)) + (r.desc.length > 140 ? "…" : "") + "</p>" +
     '<div class="row" style="font-size:.82rem"><span>📍 ' + esc(r.local) + "</span><span>🗓 " + esc(r.prazo) + "</span><span>💰 " + (r.orcamento ? BRL(r.orcamento) : "Aberto") + "</span><span>🏢 " + esc(emp.nome || "") + "</span></div>" +
     '<div class="row"><a class="btn btn-primary btn-sm" href="#/app/solicitacao/' + r.id + '">Ver detalhes</a><span class="muted" style="font-size:.78rem">' + timeAgo(r.criadoEm) + "</span></div></div>";
@@ -736,10 +755,10 @@ function agItemHTML(a) {
 /* ----- dashboard ----- */
 function vDashboard() {
   var u = me(), el = $("#appContent");
-  if (isEmp(u) || isLoja(u)) {
+  if (canContract(u)) {
     var my = db.requests.filter(function (r) { return r.empresaId === u.id; });
     var open = my.filter(function (r) { return ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0; });
-    var recv = db.proposals.filter(function (p) { return p.status === "pendente" && my.some(function (r) { return r.id === p.reqId; }); });
+    var waiting = my.filter(function (r) { return r.status === "solicitado"; });
     var next = db.schedules.filter(function (a) { return a.contratanteId === u.id && ["agendado", "em_andamento"].indexOf(a.status) >= 0; });
     var spent = db.proposals.filter(function (p) { return p.status === "aceita" && my.some(function (r) { return r.id === p.reqId; }); }).reduce(function (a, p) { return a + p.valor; }, 0);
     var shopPanel = isLoja(u) ? '<div class="panel"><h3>🏪 Minha loja</h3><div class="store-list">' + storeCard(u) + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/perfil/' + u.id + '">Ver vitrine</a><a class="btn btn-secondary btn-sm" href="#/app/produtos">Meus produtos (' + shopProducts(u.id).length + ')</a><a class="btn btn-primary btn-sm" href="#/app/perfil">Editar loja</a></div></div>' : "";
@@ -748,10 +767,10 @@ function vDashboard() {
     var oppPanel = isLoja(u) ? '<div class="panel"><h3>🎯 Oportunidades para você (' + oppList.length + ')</h3><p class="muted">Pedidos abertos na região. Sua loja também pode enviar propostas.</p><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver oportunidades →</a></div>' : "";
     var recvAll = isLoja(u) ? (db.orders || []).filter(function (o) { return o.lojaId === u.id; }).sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); }) : [];
     var recvPanel = isLoja(u) ? '<div class="panel"><h3>🧾 Últimos pedidos</h3>' + (recvAll.length ? recvAll.slice(0, 3).map(function (o) { return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line-soft);padding:.45rem 0"><span style="font-size:.88rem"><strong>' + esc(o.buyer.nome) + "</strong> · " + BRL(o.total) + "</span>" + orderBadge(o.status) + "</div>"; }).join("") + '<div class="row" style="margin-top:.5rem"><a class="btn btn-secondary btn-sm" href="#/app/pedidos">Ver todos →</a></div>' : "<p class='muted'>Nenhum pedido ainda.</p>") + "</div>" : "";
-    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>Acompanhe solicitações, propostas e serviços.</p>" +
-      '<div class="kpis"><div class="kpi"><small>Solicitações abertas</small><strong>' + open.length + '</strong></div><div class="kpi"><small>Propostas recebidas</small><strong>' + recv.length + '</strong><span class="delta">aguardando você</span></div><div class="kpi"><small>Próximos serviços</small><strong>' + next.length + '</strong></div><div class="kpi"><small>Total investido</small><strong style="font-size:1.25rem">' + BRL(spent) + "</strong></div></div>" +
-      '<div class="dash-grid"><div><div class="panel"><h3>Próximos serviços</h3>' + (next.length ? next.map(agItemHTML).join("") : "<p class='muted'>Nada agendado. <a class='link' href='#/app/nova'>Publicar necessidade →</a></p>") + '</div>' +
-      '<div class="panel"><h3>Minhas solicitações</h3><div class="req-list">' + (my.length ? my.slice(0, 4).map(reqItemHTML).join("") : "<p class='muted'>Publique sua primeira necessidade.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/solicitacoes">Ver todas</a><a class="btn btn-primary btn-sm" href="#/app/nova">＋ Nova solicitação</a></div></div></div>' +
+    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>Acompanhe pedidos, confirmações e serviços.</p>" +
+      '<div class="kpis"><div class="kpi"><small>Pedidos abertos</small><strong>' + open.length + '</strong></div><div class="kpi"><small>Aguardando confirmação</small><strong>' + waiting.length + '</strong><span class="delta">pelas empresas</span></div><div class="kpi"><small>Próximos serviços</small><strong>' + next.length + '</strong></div><div class="kpi"><small>Total investido</small><strong style="font-size:1.25rem">' + BRL(spent) + "</strong></div></div>" +
+      '<div class="dash-grid"><div><div class="panel"><h3>Próximos serviços</h3>' + (next.length ? next.map(agItemHTML).join("") : "<p class='muted'>Nada agendado. <a class='link' href='#/explorar'>Buscar prestadores →</a></p>") + '</div>' +
+      '<div class="panel"><h3>Meus pedidos</h3><div class="req-list">' + (my.length ? my.slice(0, 4).map(reqItemHTML).join("") : "<p class='muted'>Nenhum pedido ainda. Busque uma empresa e peça o serviço.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/solicitacoes">Ver todos</a><a class="btn btn-primary btn-sm" href="#/explorar">Buscar prestador</a></div></div></div>' +
       '<div><div class="panel"><h3>Gastos por serviço</h3>' + barsHTML(my) + '</div>' + shopPanel + catPanel + oppPanel + recvPanel + '</div></div></div>';
     var fc = $("#frmCat");
     if (fc) fc.addEventListener("submit", function (e) {
@@ -772,7 +791,7 @@ function vDashboard() {
     var rt = ratingOf(u.id);
     el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>Oportunidades, propostas e agenda.</p>" +
       '<div class="kpis"><div class="kpi"><small>Novas oportunidades</small><strong>' + open2.length + '</strong></div><div class="kpi"><small>Propostas enviadas</small><strong>' + sent.length + '</strong></div><div class="kpi"><small>Ganhos (aceitas)</small><strong style="font-size:1.25rem">' + BRL(earned) + '</strong></div><div class="kpi"><small>Avaliação</small><strong>' + (rt.t ? rt.m.toFixed(1).replace(".", ",") + "★" : "Novo") + '</strong><span class="delta">' + rt.t + ' avaliações</span></div></div>' +
-      '<div class="dash-grid"><div><div class="panel"><h3>🆕 Oportunidades para você</h3><div class="req-list">' + (open2.slice(0, 4).map(reqItemHTML).join("") || "<p class='muted'>Sem novidades agora.</p>") + '</div><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver todas →</a></div></div>' +
+      '<div class="dash-grid"><div><div class="panel"><h3>🆕 Oportunidades para você</h3><div class="req-list">' + (open2.slice(0, 4).map(reqItemHTML).join("") || "<p class='muted'>Sem novidades agora.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver todas →</a><a class="btn btn-primary btn-sm" href="#/app/servicos">Meus serviços</a></div></div></div>' +
       '<div><div class="panel"><h3>Serviços agendados</h3>' + (sched.length ? sched.map(agItemHTML).join("") : "<p class='muted'>Nada agendado.</p>") + '</div><div class="panel"><h3>Concluídos (' + done.length + ")</h3>" + (done.slice(0, 3).map(agItemHTML).join("") || "<p class='muted'>—</p>") + "</div></div></div>";
   }
 }
@@ -791,6 +810,7 @@ function barsHTML(reqs) {
 function vReqList(mine) {
   var u = me(), el = $("#appContent");
   if (mine && isLabor(u)) { location.hash = "#/app/oportunidades"; return; }
+  if (!mine && !isProv(u)) { location.hash = "#/app/solicitacoes"; return; }
   var list = mine ? db.requests.filter(function (r) { return r.empresaId === u.id; })
     : db.requests.filter(function (r) { return ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0; });
   var segs = [["todas", "Todas"], ["abertas", "Abertas"], ["agendadas", "Agendadas/Andamento"], ["concluidas", "Concluídas"]];
@@ -800,30 +820,44 @@ function vReqList(mine) {
     if (REQSEG === "concluidas") return ["concluido", "avaliado"].indexOf(r.status) >= 0;
     return true;
   });
-  el.innerHTML = "<h2>" + (mine ? "Minhas solicitações" : "Oportunidades abertas") + " (" + shown.length + ")</h2>" +
-    "<p class='muted'>" + (mine ? "Acompanhe cada pedido até a avaliação." : "Envie propostas para trabalhos na sua região.") + "</p>" +
+  el.innerHTML = "<h2>" + (mine ? "Meus pedidos" : "Oportunidades abertas") + " (" + shown.length + ")</h2>" +
+    "<p class='muted'>" + (mine ? "Acompanhe cada pedido até a avaliação." : "Confirme os pedidos diretos e envie propostas nos abertos.") + "</p>" +
+    ((!mine && u && db.requests.some(function (r) { return r.prestId === u.id && r.status === "solicitado"; }))
+      ? '<div class="panel"><h3>⏳ Aguardando sua confirmação</h3><div class="req-list">' + db.requests.filter(function (r) { return r.prestId === u.id && r.status === "solicitado"; }).map(reqItemHTML).join("") + "</div></div>"
+      : "") +
     '<div class="seg" style="margin-bottom:1rem">' + segs.map(function (s) { return '<button class="' + (REQSEG === s[0] ? "active" : "") + '" onclick="Nexo.reqSeg(\'' + s[0] + "')\">" + s[1] + "</button>"; }).join("") + "</div>" +
-    '<div class="req-list">' + (shown.length ? shown.map(reqItemHTML).join("") : '<div class="empty"><div class="empty-art">📭</div><h3>Nada por aqui</h3><p class="muted">' + (mine ? "Publique sua primeira necessidade." : "Volte em breve para novas oportunidades.") + "</p>" + (mine ? '<a class="btn btn-primary" href="#/app/nova">＋ Nova solicitação</a>' : "") + "</div>") + "</div>";
+    '<div class="req-list">' + (shown.length ? shown.map(reqItemHTML).join("") : '<div class="empty"><div class="empty-art">📭</div><h3>Nada por aqui</h3><p class="muted">' + (mine ? "Você ainda não fez pedidos. Busque uma empresa e peça o serviço." : "Volte em breve para novas oportunidades.") + "</p>" + (mine ? '<a class="btn btn-primary" href="#/explorar">Buscar prestador</a>' : "") + "</div>") + "</div>";
 }
 function vReqDetail(id) {
   var r = reqById(id), el = $("#appContent");
   if (!r) { el.innerHTML = '<div class="empty"><h3>Solicitação não encontrada</h3><a class="btn btn-secondary" href="#/app/dashboard">Voltar</a></div>'; return; }
   var u = me(), emp = userById(r.empresaId) || {}, props = proposalsOf(r.id);
   var mine = r.empresaId === u.id;
-  var canBid = isProv(u) && ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0 && !props.some(function (p) { return p.prestId === u.id; });
+  var canBid = !r.prestId && isProv(u) && ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0 && !props.some(function (p) { return p.prestId === u.id; });
+  var directed = r.prestId ? userById(r.prestId) : null;
+  var isResp = directed && u.id === directed.id;
   var html = '<p><a class="link" href="#/app/' + (mine ? "solicitacoes" : "oportunidades") + '">← Voltar</a></p>' +
     '<div class="panel"><span class="status ' + (STATUS_CL[r.status] || "") + '">' + STATUS_LB[r.status] + "</span> " +
     '<span class="badge">' + esc(catOf(r.cat).name) + "</span><h2 style='margin:.4rem 0'>" + esc(r.titulo) + "</h2>" + timelineHTML(r.status) +
     "<p>" + esc(r.desc) + "</p>" +
     '<div class="grid2"><div>📍 <strong>Local:</strong> ' + esc(r.local) + "<br>📅 <strong>Data desejada:</strong> " + fdateFull(r.dataDesejada) + " às " + esc(r.hora || "—") + "<br>🔢 <strong>Qtd:</strong> " + esc(r.qtd || 1) + "</div>" +
-    "<div>💰 <strong>Orçamento:</strong> " + (r.orcamento ? BRL(r.orcamento) : "Aberto") + "<br>🏢 <strong>Empresa:</strong> " + esc(emp.nome || "") + "<br>📝 <strong>Obs:</strong> " + esc(r.obs || "—") + "</div></div>" +
+    "<div>💰 <strong>Orçamento:</strong> " + (r.orcamento ? BRL(r.orcamento) : "Aberto") + "<br>👤 <strong>Cliente:</strong> " + esc(emp.nome || "") + (directed ? "<br>👷 <strong>Responsável:</strong> " + esc(directed.nome || "") : "") + "<br>📝 <strong>Obs:</strong> " + esc(r.obs || "—") + "</div></div>" +
     '<div class="row" style="margin-top:.8rem">' +
     (canBid ? '<button class="btn btn-primary" onclick="Nexo.bid(\'' + r.id + '\')">Enviar proposta</button>' : "") +
-    (!mine ? '<button class="btn btn-secondary" onclick="Nexo.talk(\'' + r.empresaId + "','" + r.id + "')\">💬 Falar com a empresa</button>" : '<span class="badge">Você publicou este pedido</span>') + "</div></div>" +
-    "<h3>Propostas recebidas (" + props.length + ")</h3>";
-  if (!props.length) html += '<div class="empty"><div class="empty-art">💡</div><p class="muted">Ainda sem propostas.</p></div>';
-  else if (!mine && !props.some(function (p) { return p.prestId === u.id; })) html += '<div class="panel"><p class="muted" style="margin:0">🔒 Os valores são visíveis para a empresa contratante e os autores.</p></div>';
-  else html += compareTable(r, props, mine);
+    (directed && isResp && r.status === "solicitado" ? '<button class="btn btn-primary" onclick="Nexo.confirmReq(\'' + r.id + '\')">Confirmar agendamento</button><button class="btn btn-secondary" onclick="Nexo.refuseReq(\'' + r.id + '\')">Recusar</button>' : "") +
+    (!mine && !isResp ? '<button class="btn btn-secondary" onclick="Nexo.talk(\'' + r.empresaId + "','" + r.id + "')\">💬 Falar com a empresa</button>" : "") +
+    (mine && !directed ? '<span class="badge">Você publicou este pedido</span>' : "") +
+    (mine && directed ? '<span class="badge">' + (r.status === "solicitado" ? "Aguardando " + esc(directed.nome.split(" ")[0]) : "Confirmado por " + esc(directed.nome.split(" ")[0])) + "</span>" : "") +
+    (isResp && r.status !== "solicitado" ? '<span class="badge">Pedido dirigido a você</span>' : "") + "</div></div>";
+  if (directed) {
+    var drt = ratingOf(directed.id);
+    html += "<h3>Empresa responsável</h3><div class='panel'><div class='row'><span class='pro-avatar' style='background:" + directed.cor + ";width:40px;height:40px;font-size:.8rem'>" + esc(initials(directed.nome)) + "</span><div style='flex:1'><strong>" + esc(directed.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(drt.m, drt.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + directed.id + "'>Ver perfil</a></div></div>";
+  } else {
+    html += "<h3>Propostas recebidas (" + props.length + ")</h3>";
+    if (!props.length) html += '<div class="empty"><div class="empty-art">💡</div><p class="muted">Ainda sem propostas.</p></div>';
+    else if (!mine && !props.some(function (p) { return p.prestId === u.id; })) html += '<div class="panel"><p class="muted" style="margin:0">🔒 Os valores são visíveis para a empresa contratante e os autores.</p></div>';
+    else html += compareTable(r, props, mine);
+  }
   el.innerHTML = html;
 }
 function compareTable(r, props, mine) {
@@ -839,55 +873,53 @@ function compareTable(r, props, mine) {
     }).join("") + "</tbody></table></div>";
 }
 
-/* ----- nova solicitação (página + modal) ----- */
-function reqFormHTML(preSvc) {
-  return '<form id="frmReq"><div class="grid2"><label class="field"><span>Serviço *</span><select id="rqSvc">' +
-    db.services.map(function (s) { return '<option value="' + s.id + '"' + (s.id === preSvc ? " selected" : "") + ">" + esc(s.titulo) + " — " + esc(s.precoLabel) + "</option>"; }).join("") + "</select></label>" +
-    '<label class="field"><span>Título *</span><input id="rqTitulo" placeholder="Ex.: Instalar 8 câmeras na loja"></label></div>' +
-    '<label class="field"><span>Descrição detalhada *</span><textarea id="rqDesc" class="input" rows="3" placeholder="O que precisa, medidas, pontos, acessos..."></textarea></label>' +
-    '<div class="grid2"><label class="field"><span>Local *</span><input id="rqLocal" value="Vila Aurora · "></label><label class="field"><span>Cidade *</span><input id="rqCity" value="Vila Aurora"></label></div>' +
-    '<div class="grid2"><label class="field"><span>Data desejada *</span><input id="rqData" type="date" min="' + todayISO() + '" value="' + NexoStore.dayPlus(7) + '"></label><label class="field"><span>Horário</span><input id="rqHora" type="time" value="09:00"></label></div>' +
-    '<div class="grid2"><label class="field"><span>Quantidade</span><input id="rqQtd" type="number" min="1" value="1"></label><label class="field"><span>Orçamento R$ (0 = aberto)</span><input id="rqOrc" type="number" min="0" value="0"></label></div>' +
-    '<label class="field"><span>Observações</span><textarea id="rqObs" class="input" rows="2"></textarea></label>' +
-    '<p class="form-error" id="rqErr" hidden></p>' +
-    '<button class="btn btn-primary btn-block" type="submit">Publicar solicitação</button></form>';
+/* ----- pedir serviço direto à empresa (com confirmação) ----- */
+function priceLabel(v) {
+  v = +v || 0;
+  return v > 0 ? "A partir de " + BRL(v) : "A combinar";
 }
-function submitReq(preProv) {
-  var v = {
-    svc: $("#rqSvc").value, titulo: $("#rqTitulo").value.trim(), desc: $("#rqDesc").value.trim(),
-    local: $("#rqLocal").value.trim(), city: $("#rqCity").value.trim(), data: $("#rqData").value,
-    hora: $("#rqHora").value, qtd: +$("#rqQtd").value, orc: +$("#rqOrc").value, obs: $("#rqObs").value.trim()
-  };
-  if (!v.titulo) return setErr("rqErr", "Dê um título à solicitação.");
-  if (v.desc.length < 10) return setErr("rqErr", "Descreva a necessidade com mais detalhes (mín. 10 caracteres).");
-  if (!v.local || !v.city) return setErr("rqErr", "Informe local e cidade.");
-  if (!v.data) return setErr("rqErr", "Escolha a data desejada.");
-  if (v.data < todayISO()) return setErr("rqErr", "A data não pode estar no passado.");
-  if (!(v.qtd >= 1)) return setErr("rqErr", "Quantidade mínima: 1.");
-  if (!(v.orc >= 0)) return setErr("rqErr", "Orçamento inválido.");
-  var s = svcById(v.svc) || {};
+function askFormHTML(svcId, provId) {
+  var s = svcById(svcId), p = userById(provId);
+  var inner;
+  if (s) {
+    var provs = svcProviders(s);
+    inner = '<label class="field"><span>Empresa *</span><select id="akProv">' +
+      provs.map(function (x) { return '<option value="' + x.id + '">' + esc(x.nome) + "</option>"; }).join("") + "</select></label>";
+  } else {
+    var mine = db.services.filter(function (x) { return (x.prestadores || []).indexOf(p.id) >= 0; });
+    inner = '<label class="field"><span>Serviço *</span><select id="akSvc">' +
+      mine.map(function (x) { return '<option value="' + x.id + '">' + esc(x.titulo) + " — " + esc(x.precoLabel) + "</option>"; }).join("") + "</select></label>";
+  }
+  return '<form id="frmAsk">' + inner +
+    '<div class="grid2"><label class="field"><span>Data desejada *</span><input id="akData" type="date" min="' + todayISO() + '" value="' + NexoStore.dayPlus(3) + '"></label><label class="field"><span>Horário</span><input id="akHora" type="time" value="09:00"></label></div>' +
+    '<label class="field"><span>Observações</span><textarea id="akObs" class="input" rows="2" placeholder="Detalhes, medidas, pontos de acesso..."></textarea></label>' +
+    '<p class="form-error" id="akErr" hidden></p>' +
+    '<button class="btn btn-primary btn-block" type="submit">Enviar pedido</button></form>';
+}
+function submitDirected(svcId, provId) {
+  var s, p;
+  if (svcId) { s = svcById(svcId); p = userById($("#akProv").value); }
+  else { p = userById(provId); s = svcById($("#akSvc").value); }
+  if (!s || !p) return setErr("akErr", "Escolha o serviço e a empresa.");
+  if ((s.prestadores || []).indexOf(p.id) < 0) return setErr("akErr", "Esta empresa não oferece o serviço escolhido.");
+  var data = $("#akData").value, hora = $("#akHora").value, obs = $("#akObs").value.trim();
+  if (!data) return setErr("akErr", "Escolha a data desejada.");
+  if (data < todayISO()) return setErr("akErr", "A data não pode estar no passado.");
   var r = {
-    id: NexoStore.uid("r"), empresaId: me().id, servicoId: v.svc, titulo: v.titulo, cat: s.cat || "manutencao",
-    desc: v.desc, local: v.local, cidade: v.city, prazo: "até " + fdate(v.data), dataDesejada: v.data,
-    hora: v.hora || "09:00", qtd: v.qtd, orcamento: v.orc, obs: v.obs, status: "solicitado", criadoEm: new Date().toISOString()
+    id: NexoStore.uid("r"), empresaId: me().id, servicoId: s.id, prestId: p.id, titulo: s.titulo, cat: s.cat || "manutencao",
+    desc: obs || ("Pedido direto de " + me().nome + " para " + p.nome + "."), local: me().cidade || "Vila Aurora", cidade: me().cidade || "Vila Aurora",
+    prazo: "até " + fdate(data), dataDesejada: data, hora: hora || "09:00", qtd: 1, orcamento: 0, obs: obs,
+    status: "solicitado", criadoEm: new Date().toISOString()
   };
   db.requests.unshift(r);
-  db.users.filter(function (x) { return isProv(x); }).slice(0, 6).forEach(function (p) {
-    notify(p.id, "oportunidade", "Nova oportunidade", r.titulo + " — " + r.cidade + (r.orcamento ? ", " + BRL(r.orcamento) : ", orçamento aberto") + ".", "#/app/solicitacao/" + r.id);
-  });
-  if (preProv) notify(preProv, "oportunidade", "Pedido direcionado a você", me().nome + " solicitou: " + r.titulo + ".", "#/app/solicitacao/" + r.id);
   save(); closeModal();
-  toast("Solicitação criada com sucesso!");
+  notify(p.id, "pedido", "Novo pedido direto", me().nome + " pediu: " + s.titulo + " (" + fdate(data) + ").", "#/app/solicitacao/" + r.id);
+  toast("Pedido enviado! Aguarde a confirmação da empresa.");
   location.hash = "#/app/solicitacao/" + r.id;
 }
 function vNova() {
-  var u = me();
-  if (isLabor(u)) {
-    $("#appContent").innerHTML = '<div class="empty"><div class="empty-art">⚠️</div><h3>Só empresas contratantes publicam pedidos</h3><p class="muted">Sua conta é de prestador — veja as oportunidades abertas.</p><a class="btn btn-primary" href="#/app/oportunidades">Ver oportunidades</a></div>';
-    return;
-  }
-  $("#appContent").innerHTML = "<h2>Nova solicitação</h2><p class='muted'>Descreva a necessidade. Prestadores da região serão notificados.</p><div class='panel'>" + reqFormHTML("") + "</div>";
-  $("#frmReq").addEventListener("submit", function (e) { e.preventDefault(); submitReq(null); });
+  toast("Escolha o prestador e peça o serviço direto a ele.");
+  location.hash = "#/explorar";
 }
 
 /* ----- agenda ----- */
@@ -925,7 +957,13 @@ function vMsgs() {
   var convs = db.convs.filter(function (c) { return c.parts.indexOf(u.id) >= 0; }).sort(function (a, b) { return b.atualizadoEm.localeCompare(a.atualizadoEm); });
   if (!CHAT || !convs.some(function (c) { return c.id === CHAT; })) CHAT = convs.length ? convs[0].id : null;
   var c = db.convs.filter(function (x) { return x.id === CHAT; })[0];
-  var html = "<h2>Mensagens</h2><div class='chat-list'><div class='threads panel' style='margin:0'>";
+  /* Mobile: master-detail — ou a lista, ou a conversa (com voltar). Desktop: lado a lado. */
+  var mobChat = !!(window.matchMedia && window.matchMedia("(max-width: 859px)").matches);
+  var showList = !mobChat || !c || CHATBACK;
+  var showChat = !mobChat || (!!c && !CHATBACK);
+  var html = "<h2>Mensagens</h2>" +
+    ((mobChat && showChat && c) ? '<div class="row" style="margin-bottom:.7rem"><button class="btn btn-secondary btn-sm" onclick="Nexo.chatBack()">← Conversas</button></div>' : "") +
+    "<div class='chat-list'><div class='threads panel' style='margin:0'" + (showList ? "" : " hidden") + ">";
   html += convs.length ? convs.map(function (cv) {
     var o = userById(cv.parts.filter(function (p) { return p !== u.id; })[0]) || {};
     var un = db.msgs.filter(function (m) { return m.convId === cv.id && m.deId !== u.id && !m.lida; }).length;
@@ -933,21 +971,25 @@ function vMsgs() {
       '<span class="pro-avatar" style="background:' + (o.cor || "#334155") + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(o.nome)) + "</span>" +
       "<div style='flex:1'><strong style='font-size:.88rem'>" + esc(o.nome || "") + (un ? ' <span class="status info">' + un + " nova(s)</span>" : "") + "</strong><small>" + esc(cv.titulo || "") + "</small></div></div>";
   }).join("") : '<div class="empty"><div class="empty-art">💬</div><p class="muted">Sem conversas. Abra um perfil e clique em Conversar.</p></div>';
-  html += "</div><div class='chat'>";
-  if (c) {
-    var o2 = otherOf(c);
-    var msgs = db.msgs.filter(function (m) { return m.convId === c.id; });
-    html += "<div class='msgs' id='msgs'><div style='text-align:center'><span class='badge'>" + esc(o2.nome || "") + " · " + esc(c.titulo || "") + (c.reqId ? ' · <a class="link" href="#/app/solicitacao/' + c.reqId + '">ver serviço</a>' : "") + "</span></div>" +
-      msgs.map(function (m) { return '<div class="msg' + (m.deId === u.id ? " me" : "") + '">' + esc(m.texto) + "</div>"; }).join("") + "</div>" +
-      '<div class="chat-input"><input id="chatIn" class="input" placeholder="Escreva uma mensagem..." autocomplete="off"><button class="btn btn-primary" onclick="Nexo.send()">Enviar</button></div>';
-  } else html += '<div class="empty"><div class="empty-art">👈</div><p class="muted">Selecione uma conversa.</p></div>';
-  html += "</div></div>";
+  html += "</div>";
+  if (showChat) {
+    html += "<div class='chat'>";
+    if (c) {
+      var o2 = otherOf(c);
+      var msgs = db.msgs.filter(function (m) { return m.convId === c.id; });
+      html += "<div class='msgs' id='msgs'><div style='text-align:center'><span class='badge'>" + esc(o2.nome || "") + " · " + esc(c.titulo || "") + (c.reqId ? ' · <a class="link" href="#/app/solicitacao/' + c.reqId + '">ver serviço</a>' : "") + "</span></div>" +
+        msgs.map(function (m) { return '<div class="msg' + (m.deId === u.id ? " me" : "") + '">' + esc(m.texto) + "</div>"; }).join("") + "</div>" +
+        '<div class="chat-input"><input id="chatIn" class="input" placeholder="Escreva uma mensagem..." autocomplete="off"><button class="btn btn-primary" onclick="Nexo.send()">Enviar</button></div>';
+    } else html += '<div class="empty"><div class="empty-art">👈</div><p class="muted">Selecione uma conversa.</p></div>';
+    html += "</div>";
+  }
+  html += "</div>";
   $("#appContent").innerHTML = html;
   db.msgs.filter(function (m) { return c && m.convId === c.id && m.deId !== u.id && !m.lida; }).forEach(function (m) { m.lida = true; });
   save(); paintChrome(); paintSide(curRoute());
   var box = $("#msgs"); if (box) box.scrollTop = box.scrollHeight;
   var inp = $("#chatIn");
-  if (inp) { inp.focus(); inp.addEventListener("keydown", function (e) { if (e.key === "Enter") Nexo.send(); }); }
+  if (inp) { if (!mobChat) inp.focus(); inp.addEventListener("keydown", function (e) { if (e.key === "Enter") Nexo.send(); }); }
 }
 
 /* ----- favoritos ----- */
@@ -997,6 +1039,32 @@ function vProdutos() {
 function catDataList() {
   var u = me(), cats = (u && u.menuCats) || ["Geral"];
   return '<datalist id="pdCatList">' + cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("") + "</datalist>";
+}
+/* ----- meus serviços (a empresa cadastra o que faz) ----- */
+function svcRowHTML(s) {
+  var n = (s.prestadores || []).length;
+  return '<div class="req-item"><div class="req-item-top"><strong>' + esc(s.titulo) + '</strong><span class="badge">' + esc(catOf(s.cat).name) + "</span>" + (n > 1 ? '<span class="badge info" title="Outras empresas também oferecem">compartilhado</span>' : "") + "</div>" +
+    '<p class="muted" style="margin:0;font-size:.9rem">' + esc(s.desc || "Sem descrição") + "</p>" +
+    '<div class="row" style="font-size:.85rem"><strong>' + esc(s.precoLabel || "A combinar") + "</strong></div>" +
+    '<div class="row"><button class="btn btn-secondary btn-sm" onclick="Nexo.svcEdit(\'' + s.id + '\')">Editar</button><button class="btn btn-secondary btn-sm" onclick="Nexo.svcDel(\'' + s.id + '\')">Remover</button></div></div>';
+}
+function vServicos() {
+  var u = me();
+  if (!isLabor(u)) { location.hash = "#/app/dashboard"; return; }
+  var list = db.services.filter(function (s) { return (s.prestadores || []).indexOf(u.id) >= 0; });
+  $("#appContent").innerHTML = "<h2>Meus serviços (" + list.length + ")</h2><p class='muted'>O que sua empresa faz. É o que o cliente escolhe na hora de pedir.</p>" +
+    '<div class="row" style="margin-bottom:1rem"><button class="btn btn-primary" onclick="Nexo.svcAdd()">+ Adicionar serviço</button></div>' +
+    (list.length ? "<div class='req-list'>" + list.map(svcRowHTML).join("") + "</div>"
+      : '<div class="empty"><div class="empty-art">🛠</div><h3>Nenhum serviço cadastrado</h3><p class="muted">Cadastre o que você faz para receber pedidos diretos.</p><button class="btn btn-primary" onclick="Nexo.svcAdd()">+ Adicionar serviço</button></div>');
+}
+function svcFormHTML(s) {
+  s = s || { titulo: "", preco: 0, desc: "", cat: "manutencao" };
+  return '<form id="frmSvc"><label class="field"><span>Nome do serviço *</span><input id="svNome" value="' + esc(s.titulo || "") + '" placeholder="Ex.: Limpeza pós-obra"></label>' +
+    '<div class="grid2"><label class="field"><span>Categoria *</span><select id="svCat">' + CATS.map(function (c) { return '<option value="' + c.id + '"' + ((s.cat || "manutencao") === c.id ? " selected" : "") + ">" + c.icon + " " + esc(c.name) + "</option>"; }).join("") + "</select></label>" +
+    '<label class="field"><span>Preço base R$ (0 = a combinar)</span><input id="svPreco" type="number" min="0" value="' + (s.preco || 0) + '"></label></div>' +
+    '<label class="field"><span>Descrição</span><textarea id="svDesc" class="input" rows="2" placeholder="O que está incluso...">' + esc(s.desc || "") + "</textarea></label>" +
+    '<p class="form-error" id="svErr" hidden></p>' +
+    '<div class="row"><button type="button" class="btn btn-secondary" onclick="Nexo.close()">Cancelar</button><button class="btn btn-primary" type="submit">Salvar</button></div></form>';
 }
 /* ----- pedidos recebidos (loja) ----- */
 function orderBadge(st) {
@@ -1189,9 +1257,9 @@ function refresh() {
   /* Re-renderiza a visão atual sem trocar de rota (preserva filtros/scroll) */
   var p = parseHash(), segs = p.segs;
   if (segs[0] === "app") { renderApp(segs[1] || "dashboard", segs[2] || null); return; }
-  var v = segs[0] || "home";
-  if (!segs.length || v === "home") renderHome();
-  else if (v === "explorar") applySearch();
+  var v = segs[0] || "explorar";
+  if (!segs.length) { location.hash = "#/explorar"; return; }
+  if (v === "explorar") applySearch();
   else if (v === "perfil") renderPerfil(segs[1]);
   else if (v === "carrinho") renderCarrinho();
 }
@@ -1213,6 +1281,7 @@ function renderApp(sub, param) {
   else if (name === "mensagens") vMsgs();
   else if (name === "favoritos") vFav();
   else if (name === "produtos") vProdutos();
+  else if (name === "servicos") vServicos();
   else if (name === "pedidos") vPedidos();
   else if (name === "notificacoes") vNotifs();
   else if (name === "perfil") vPerfilApp();
@@ -1227,6 +1296,14 @@ function renderApp(sub, param) {
 window.Nexo = {
   close: closeModal,
   logout: function () { db.session = null; save(); paintChrome(); location.hash = "#/"; toast("Você saiu. Até logo!"); },
+  switchAccount: function () {
+    if (!me()) { location.hash = "#/login"; toast("Entre ou use o acesso demo para trocar de conta."); return null; }
+    return doSwap(null);
+  },
+  switchTo: function (id) {
+    if (!me()) { location.hash = "#/login"; toast("Entre ou use o acesso demo para trocar de conta."); return null; }
+    return doSwap(id);
+  },
   resetDemo: function () {
     if (!confirm("Restaurar todos os dados de demonstração? Suas alterações locais serão perdidas.")) return;
     db = NexoStore.reset(); CHAT = null; save(); paintChrome();
@@ -1234,7 +1311,6 @@ window.Nexo = {
     refresh();
   },
   ptab: function (t) { PTAB = t; renderPerfil(parseHash().segs[1]); },
-  homeTab: function (t) { HOME_TAB = t === "servicos" ? "servicos" : "lojas"; renderHome(); },
   menuGo: function (id, btn) {
     var el = document.getElementById(id);
     if (el && el.scrollIntoView) el.scrollIntoView();
@@ -1265,18 +1341,50 @@ window.Nexo = {
         var pr = ratingOf(p.id);
         return '<div class="row"><span class="pro-avatar" style="background:' + p.cor + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(p.nome)) + "</span><div style='flex:1'><strong>" + esc(p.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(pr.m, pr.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + p.id + "'>Ver perfil</a></div>";
       }).join("") +
-      '<div class="row"><button class="btn btn-primary btn-block" onclick="Nexo.openRequest(\'' + s.id + "')\">Solicitar este serviço</button></div>");
+      '<div class="row"><button class="btn btn-primary btn-block" onclick="Nexo.askService(\'' + s.id + "')\">Pedir este serviço</button></div>");
   },
-  openRequest: function (preSvc, preProv) {
-    if (needLogin("Crie sua conta para publicar uma necessidade.")) return;
-    if (isLabor(me())) { toast("Sua conta é de prestador. Veja as oportunidades abertas."); location.hash = "#/app/oportunidades"; return; }
-    openModal("Publicar necessidade", reqFormHTML(preSvc || ""));
-    $("#frmReq").addEventListener("submit", function (e) { e.preventDefault(); submitReq(preProv || null); });
-    if (preProv) { var u = userById(preProv); if (u) toast("Pedido direcionado a " + u.nome.split(" ")[0] + "."); }
+  askService: function (svcId, provId) {
+    if (needLogin("Entre ou crie uma conta para pedir um serviço.")) return;
+    if (!canContract(me())) { toast("Sua conta é de prestador. Quem pede é o cliente ou a empresa."); return; }
+    var s = svcId ? svcById(svcId) : null, p = provId ? userById(provId) : null;
+    if (s && !svcProviders(s).length) { toast("Este serviço está sem empresas no momento."); return; }
+    if (p && !isProv(p)) { toast("Escolha uma empresa, loja ou profissional."); return; }
+    if (p && !db.services.some(function (x) { return (x.prestadores || []).indexOf(p.id) >= 0; })) { toast(p.nome.split(" ")[0] + " ainda não cadastrou serviços. Chame no chat."); return; }
+    if (!s && !p) return;
+    openModal("Pedir serviço" + (s ? ": " + s.titulo : "") + (p && !s ? " — " + p.nome : ""), askFormHTML(s ? s.id : "", p && !s ? p.id : ""));
+    $("#frmAsk").addEventListener("submit", function (e) { e.preventDefault(); submitDirected(s ? s.id : "", p && !s ? p.id : ""); });
+  },
+  confirmReq: function (reqId) {
+    var r = reqById(reqId); if (!r) return;
+    if (!r.prestId || r.prestId !== me().id) { toast("Só a empresa pode confirmar este pedido."); return; }
+    if (r.status !== "solicitado") { toast("Este pedido já foi tratado."); return; }
+    if (!confirm("Confirmar \"" + r.titulo + "\" para " + fdateFull(r.dataDesejada) + " às " + (r.hora || "—") + "?")) return;
+    r.status = "agendado";
+    var a = { id: NexoStore.uid("a"), reqId: r.id, propId: null, contratanteId: r.empresaId, prestId: r.prestId, titulo: r.titulo, local: r.local, data: r.dataDesejada, hora: r.hora || "09:00", status: "agendado" };
+    db.schedules.push(a);
+    if (!db.convs.some(function (x) { return x.reqId === r.id && x.parts.indexOf(r.prestId) >= 0; })) {
+      db.convs.unshift({ id: NexoStore.uid("c"), reqId: r.id, parts: [r.empresaId, r.prestId], titulo: r.titulo, atualizadoEm: new Date().toISOString() });
+    }
+    save();
+    notify(r.empresaId, "agendado", "Pedido confirmado!", r.titulo + " confirmado para " + fdateFull(a.data) + " às " + a.hora + ".", "#/app/agenda");
+    toast("Agendamento confirmado! 🎉");
+    vReqDetail(r.id); paintSide(curRoute());
+  },
+  refuseReq: function (reqId) {
+    var r = reqById(reqId); if (!r) return;
+    if (!r.prestId || r.prestId !== me().id) { toast("Só a empresa pode recusar este pedido."); return; }
+    if (!confirm("Recusar e apagar este pedido? O cliente será avisado.")) return;
+    db.requests = db.requests.filter(function (x) { return x.id !== reqId; });
+    save();
+    notify(r.empresaId, "pedido", "Pedido recusado", "Infelizmente " + me().nome + " não pôde atender: " + r.titulo + ".", "#/app/solicitacoes");
+    toast("Pedido recusado.");
+    location.hash = "#/app/oportunidades";
   },
   bid: function (reqId) {
     if (needLogin()) return;
+    if (!isProv(me())) { toast("Sua conta é de cliente. Propostas são enviadas por prestadores e lojas."); location.hash = "#/app/solicitacoes"; return; }
     var r = reqById(reqId); if (!r) return;
+    if (r.prestId) { toast("Pedido dirigido: só a empresa responsável atende."); return; }
     openModal("Enviar proposta",
       "<p class='muted' style='margin:0'>" + esc(r.titulo) + " · " + (r.orcamento ? "ref: " + BRL(r.orcamento) : "orçamento aberto") + "</p>" +
       '<form id="frmBid"><div class="grid2"><label class="field"><span>Valor (R$) *</span><input id="bdValor" type="number" min="1" placeholder="Ex.: 800"></label>' +
@@ -1305,6 +1413,7 @@ window.Nexo = {
   accept: function (pid) {
     var p = db.proposals.filter(function (x) { return x.id === pid; })[0]; if (!p) return;
     var r = reqById(p.reqId), pr = userById(p.prestId) || {};
+    if (!r || r.empresaId !== me().id) { toast("Só quem publicou o pedido pode aceitar propostas."); return; }
     if (!confirm("Aceitar proposta de " + BRL(p.valor) + " (" + pr.nome + ")? As demais serão recusadas e o serviço será agendado.")) return;
     p.status = "aceita";
     db.proposals.filter(function (x) { return x.reqId === r.id && x.id !== pid && x.status === "pendente"; }).forEach(function (x) {
@@ -1326,6 +1435,8 @@ window.Nexo = {
   },
   refuse: function (pid) {
     var p = db.proposals.filter(function (x) { return x.id === pid; })[0]; if (!p) return;
+    var r0 = reqById(p.reqId);
+    if (!r0 || r0.empresaId !== me().id) { toast("Só quem publicou o pedido pode recusar propostas."); return; }
     if (!confirm("Recusar esta proposta?")) return;
     p.status = "recusada"; save();
     var r = reqById(p.reqId) || {};
@@ -1377,11 +1488,12 @@ window.Nexo = {
       c = { id: NexoStore.uid("c"), reqId: reqId || null, parts: [me().id, otherId], titulo: r ? r.titulo : "Conversa com " + o.nome, atualizadoEm: new Date().toISOString() };
       db.convs.unshift(c); save();
     }
-    CHAT = c.id;
+    CHAT = c.id; CHATBACK = false;
     location.hash = "#/app/mensagens";
     if (parseHash().segs[1] === "mensagens") vMsgs();
   },
-  chat: function (id) { CHAT = id; vMsgs(); paintSide("mensagens"); },
+  chat: function (id) { CHAT = id; CHATBACK = false; vMsgs(); paintSide("mensagens"); },
+  chatBack: function () { CHATBACK = true; vMsgs(); paintSide("mensagens"); },
   send: function () {
     var inp = $("#chatIn"); if (!inp || !inp.value.trim()) return;
     var c = db.convs.filter(function (x) { return x.id === CHAT; })[0]; if (!c) return;
@@ -1445,6 +1557,44 @@ window.Nexo = {
     if (!confirm("Remover este produto do catálogo?")) return;
     db.products.splice(i, 1); save(); toast("Produto removido.");
     vProdutos();
+  },
+  svcAdd: function () {
+    if (!isLabor(me())) return;
+    openModal("Adicionar serviço", svcFormHTML(null));
+    $("#frmSvc").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var nome = $("#svNome").value.trim(), preco = +$("#svPreco").value;
+      if (nome.length < 3) return setErr("svErr", "Dê um nome ao serviço.");
+      if (!(preco >= 0)) return setErr("svErr", "Preço inválido (0 = a combinar).");
+      var u = me(), colors = ["c0", "c1", "c2", "c3", "c4", "c5"];
+      db.services.push({ id: NexoStore.uid("s"), titulo: nome, cat: $("#svCat").value, preco: preco, precoLabel: priceLabel(preco), dist: (u.dist != null ? u.dist : 3), disp: u.disponibilidade || "semana", cor: colors[db.services.length % colors.length], desc: $("#svDesc").value.trim(), prestadores: [u.id] });
+      save(); closeModal(); toast("Serviço cadastrado! 🛠");
+      vServicos(); paintSide("servicos");
+    });
+  },
+  svcEdit: function (id) {
+    var u = me(), s = svcById(id);
+    if (!s || (s.prestadores || []).indexOf(u.id) < 0) return;
+    var shared = (s.prestadores || []).length > 1;
+    openModal("Editar serviço" + (shared ? " (compartilhado: muda para as outras também)" : ""), svcFormHTML(s));
+    $("#frmSvc").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var nome = $("#svNome").value.trim(), preco = +$("#svPreco").value;
+      if (nome.length < 3) return setErr("svErr", "Dê um nome ao serviço.");
+      if (!(preco >= 0)) return setErr("svErr", "Preço inválido (0 = a combinar).");
+      s.titulo = nome; s.cat = $("#svCat").value; s.preco = preco; s.precoLabel = priceLabel(preco); s.desc = $("#svDesc").value.trim();
+      save(); closeModal(); toast("Serviço atualizado!");
+      vServicos(); paintSide("servicos");
+    });
+  },
+  svcDel: function (id) {
+    var u = me(), s = svcById(id);
+    if (!s || (s.prestadores || []).indexOf(u.id) < 0) return;
+    if (!confirm("Remover \"" + s.titulo + "\" dos seus serviços?")) return;
+    s.prestadores = (s.prestadores || []).filter(function (x) { return x !== u.id; });
+    if (!s.prestadores.length) db.services = db.services.filter(function (x) { return x.id !== id; });
+    save(); toast("Serviço removido.");
+    vServicos(); paintSide("servicos");
   },
   cartAdd: function (lojaId, prodId) {
     if (!db.cart) db.cart = { items: [] };
@@ -1625,7 +1775,6 @@ function bindChrome() {
       if (msg.indexOf("Link de recuperação") === 0) { e.preventDefault(); openRecover(); return; }
       toast(msg); return;
     }
-    if (t.closest("[data-open-request]")) { e.preventDefault(); Nexo.openRequest("", ""); return; }
     if (t.closest("[data-demo-proposal]")) { e.preventDefault(); Nexo.demoProposal(); return; }
     if (t.closest("#bellBtn")) { renderPop(); return; }
     if (t.closest("#modalClose")) { closeModal(); return; }
@@ -1653,13 +1802,6 @@ function bindChrome() {
     }
   });
   $("#modalScrim").addEventListener("click", function (e) { if (e.target.id === "modalScrim") closeModal(); });
-  var hs = $("#homeSearch");
-  if (hs) hs.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var q = $("#homeQ") ? $("#homeQ").value.trim() : "";
-    var loc = $("#homeLoc") ? $("#homeLoc").value.trim() : "Vila Aurora";
-    location.hash = "#/explorar?q=" + encodeURIComponent(q) + "&loc=" + encodeURIComponent(loc);
-  });
   var gs = $("#globalSearch");
   if (gs) gs.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && gs.value.trim()) location.hash = "#/explorar?q=" + encodeURIComponent(gs.value.trim());
@@ -1699,11 +1841,10 @@ function bindChrome() {
 }
 
 function init() {
-  renderHome();
   bindAuth();
   bindChrome();
   window.addEventListener("hashchange", route);
-  if (!location.hash) location.hash = "#/";
+  if (!location.hash) location.hash = "#/explorar";
   route();
 }
 

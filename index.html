@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=17">
+<link rel="stylesheet" href="css/style.css?v=18">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231D4ED8'/%3E%3Cpath d='M10 22V10l12 12V10' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -54,7 +54,8 @@
   <div class="drawer-cta">
     <a href="#/login" class="btn btn-secondary btn-block">Entrar</a>
     <a href="#/cadastro" class="btn btn-primary btn-block">Criar conta grátis</a>
-    <p class="drawer-hint">Acesso demo: use os botões da tela de login (Empresa, Autônomo ou Prestadora).</p>
+    <button class="btn btn-secondary btn-block" onclick="Nexo.switchAccount()">⇄ Trocar de conta (demo)</button>
+    <p class="drawer-hint">Acesso demo: use os botões da tela de login (Pessoa física, Empresa, Autônomo ou Prestadora).</p>
   </div>
 </aside>
 
@@ -62,81 +63,10 @@
 <!-- ==================== VIEWS PÚBLICAS ==================== -->
 <div id="publicZone">
 
-  <!-- HOME -->
-  <section class="view" id="view-home">
-    <!-- HERO -->
-    <div class="hero store-hero">
-      <div class="container">
-        <p class="eyebrow light">📍 Vila Aurora · cidade demo</p>
-        <h1 class="light">O que você precisa hoje?</h1>
-        <form class="store-search" id="homeSearch" role="search" aria-label="Buscar prestadores">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input id="homeQ" type="search" placeholder="Busque loja, serviço ou prestador…" autocomplete="off" aria-label="Buscar">
-          <button class="btn btn-primary" type="submit">Buscar</button>
-        </form>
-        <div class="doors" id="homeDoors"></div>
-        <div class="row"><span class="badge" id="homeOpenNow">Rede verificada pela Nexo</span><a class="link light" href="#/explorar">Busca avançada →</a></div>
-      </div>
-    </div>
-
-    <!-- LOJAS -->
-    <div class="section alt">
-      <div class="container">
-        <div class="section-head"><div><p class="eyebrow" id="storesEyebrow">Comércio local</p><h2 id="storesTitle">Lojas em Vila Aurora</h2><p class="muted" id="storesCount"></p></div><a class="btn btn-ghost btn-sm" href="#/explorar">Ver tudo →</a></div>
-        <div class="store-list" id="homeStores"></div>
-      </div>
-    </div>
-
-    <!-- COMO FUNCIONA -->
-    <div class="container section slim">
-      <div class="howmini">
-        <div><strong>1 · Peça</strong><span>Publique ou escolha na vitrine</span></div>
-        <div><strong>2 · Compare</strong><span>Propostas, preços e avaliações</span></div>
-        <div><strong>3 · Receba</strong><span>Agende, acompanhe e avalie</span></div>
-        <a class="btn btn-primary" href="#/explorar">Começar</a>
-      </div>
-    </div>
-
-    <!-- PUBLIQUE NECESSIDADE -->
-    <div class="section dark">
-      <div class="container need-grid">
-        <div>
-          <p class="eyebrow light">Diferencial Nexo</p>
-          <h2 class="light">Precisa de algo específico?<br>Publique e receba propostas.</h2>
-          <p class="muted-light">Descreva uma vez. Nossa rede de prestadores responde com propostas comparáveis — você escolhe a melhor.</p>
-          <ul class="checklist">
-            <li>Propostas em média em 3h 42min</li>
-            <li>Comparação lado a lado de preço, prazo e avaliação</li>
-            <li>Pagamento só liberado após a conclusão</li>
-          </ul>
-          <div class="row"><button class="btn btn-light btn-lg" data-open-request>Publicar necessidade</button><a class="btn btn-outline-light btn-lg" href="#/app/solicitacoes">Ver exemplo no painel</a></div>
-        </div>
-        <div class="need-visual" aria-label="Exemplo de solicitação e propostas">
-          <div class="req-card">
-            <div class="req-head"><span class="req-avatar">PM</span><div><strong>Padaria Pão &amp; Cia</strong><small>Publicado há 2h · Vila Aurora</small></div><span class="badge warn">3 propostas</span></div>
-            <p>“Preciso instalar <strong>8 câmeras</strong> em minha loja.”</p>
-            <div class="req-meta"><span>📍 Vila Aurora</span><span>🗓 até 20/09</span><span>💰 Orçamento aberto</span></div>
-          </div>
-          <div class="prop-feed">
-            <div class="prop"><span class="mock-avatar">JS</span><div><strong>João Segurança</strong><small>⭐ 4,9 · 212 serviços</small></div><div class="prop-right"><strong>R$ 800</strong><small>Disponível dia 17</small></div></div>
-            <div class="prop"><span class="mock-avatar alt">VS</span><div><strong>Vetor Segurança</strong><small>⭐ 4,8 · 340 serviços</small></div><div class="prop-right"><strong>R$ 950</strong><small>Disponível dia 18</small></div></div>
-            <div class="prop incoming"><span class="pulse"></span> Nova proposta chegando…</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DESTAQUES -->
-    <div class="container section slim">
-      <div class="section-head"><div><p class="eyebrow">Dúvidas?</p><h2>Fale com a gente</h2><p class="muted">Suporte humano em PT-BR, sem robô.</p></div><a class="btn btn-secondary" href="#/cadastro">Criar conta grátis</a></div>
-    </div>
-  </section>
-
-  <!-- EXPLORAR -->
+  <!-- EXPLORAR (tela inicial) -->
   <section class="view" id="view-explorar" hidden>
     <div class="container page-head">
       <div><p class="eyebrow">Explorar</p><h1 id="searchTitle">Explorar Vila Aurora</h1><p class="muted" id="searchCount"></p></div>
-      <button class="btn btn-primary" data-open-request>＋ Publicar necessidade</button>
     </div>
     <div class="container explore-top">
       <div class="store-search" role="search" aria-label="Buscar">
@@ -159,7 +89,7 @@
       </details>
       <div class="toolbar"><div class="seg" role="tablist"><button class="active" data-sort="relevance">Relevância</button><button data-sort="price">Menor preço</button><button data-sort="rating">Melhor avaliados</button></div><span class="muted" id="activeFilters"></span></div>
       <div id="searchGrid"></div>
-      <div class="empty" id="searchEmpty" hidden><div class="empty-art">🔍</div><h3>Nenhum serviço encontrado</h3><p>Tente ampliar a distância ou publicar sua necessidade para receber propostas.</p><div class="row center"><button class="btn btn-secondary" id="emptyClear">Limpar filtros</button><button class="btn btn-primary" data-open-request>Publicar necessidade</button></div></div>
+      <div class="empty" id="searchEmpty" hidden><div class="empty-art">🔍</div><h3>Nenhum serviço encontrado</h3><p>Tente ampliar a distância ou buscar pelo nome da empresa.</p><div class="row center"><button class="btn btn-secondary" id="emptyClear">Limpar filtros</button></div></div>
     </div>
   </section>
 
@@ -208,6 +138,7 @@
       <div class="auth-card">
         <h1>Bem-vindo de volta</h1><p class="muted">Acesse seu painel. Demo: use o acesso rápido abaixo (senha demo1234).</p>
         <div class="role-pick" role="group" aria-label="Entrar como">
+          <button class="role" data-role="cliente">🧑 Pessoa física</button>
           <button class="role active" data-role="empresa">🏢 Empresa</button>
           <button class="role" data-role="prestador">🛠 Prestador</button>
           <button class="role" data-role="autonomo">👤 Autônomo</button>
@@ -233,7 +164,7 @@
       <div class="auth-card">
         <h1>Crie sua conta</h1><p class="muted">Leva 1 minuto. Sem cartão.</p>
         <div class="steps-mini" id="signupSteps"><span class="on">1 · Perfil</span><span>2 · Dados</span><span>3 · Pronto</span></div>
-        <div class="role-pick" id="signupRoles"><button class="role" data-role="empresa">🏢 Contrato serviços</button><button class="role" data-role="prestador">🛠 Empresa prestadora</button><button class="role" data-role="autonomo">👤 Sou autônomo</button><button class="role" data-role="loja">🏪 Tenho uma loja</button></div>
+        <div class="role-pick" id="signupRoles"><button class="role" data-role="cliente">🧑 Pessoa física</button><button class="role" data-role="empresa">🏢 Contrato serviços</button><button class="role" data-role="prestador">🛠 Empresa prestadora</button><button class="role" data-role="autonomo">👤 Sou autônomo</button><button class="role" data-role="loja">🏪 Tenho uma loja</button></div>
         <form id="signupForm" novalidate>
           <div class="grid2">
             <label class="field"><span>Nome / Razão social</span><input id="suName" required placeholder="Ex.: Lojas Prisma"></label>
@@ -271,7 +202,7 @@
   <div class="app-layout">
     <aside class="sidebar" aria-label="Navegação do painel">
       <a href="#/" class="brand small"><span class="brand-mark"><svg viewBox="0 0 32 32" width="24" height="24"><rect width="32" height="32" rx="8" fill="#1D4ED8"/><path d="M10 22V10l12 12V10" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-name">Nexo</span></a>
-      <div class="ws-switch"><span class="ws-avatar">LP</span><div><strong id="wsName">Lojas Prisma</strong><small id="wsRole">Empresa · Vila Aurora</small></div><button class="icon-btn" data-toast="Troca de workspace em breve na demo." aria-label="Trocar workspace">⇅</button></div>
+      <div class="ws-switch"><span class="ws-avatar">LP</span><div><strong id="wsName">Lojas Prisma</strong><small id="wsRole">Empresa · Vila Aurora</small></div><button class="icon-btn swap-btn" onclick="Nexo.switchAccount()" title="Trocar de conta (demo): Pessoa física ⇄ Empresa" aria-label="Trocar de conta (demo)">⇅</button></div>
       <nav class="side-nav" id="sideNav"></nav>
       <div class="side-foot"><div class="usage"><small>Plano Operação · 12/∞ solicitações</small><div class="mock-progress"><i style="width:34%"></i></div></div><button class="side-item" data-route="config"><span>⚙</span> Configurações</button><button class="side-item" id="logoutBtn"><span>↩</span> Sair da demo</button></div>
     </aside>
@@ -280,7 +211,8 @@
         <button class="icon-btn only-mobile" id="openSide" aria-label="Abrir navegação">☰</button>
         <div class="top-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="globalSearch" placeholder="Buscar serviços, profissionais, solicitações…  ( / )"></div>
         <div class="top-actions">
-          <button class="btn btn-primary btn-sm" data-open-request>＋ Nova solicitação</button>
+          <a class="btn btn-primary btn-sm" href="#/explorar">＋ Pedir serviço</a>
+          <button class="icon-btn swap-btn" onclick="Nexo.switchAccount()" title="Trocar de conta (demo): Pessoa física ⇄ Empresa" aria-label="Trocar de conta (demo)">⇄</button>
           <button class="icon-btn bell" id="bellBtn" aria-label="Notificações"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8M10 21a2 2 0 004 0"/></svg><em id="bellDot">3</em></button>
           <button class="avatar-btn" data-route="perfil" aria-label="Meu perfil">M</button>
         </div>
@@ -317,7 +249,7 @@
   </div>
 </div>
 
-<script src="js/store.js?v=17"></script>
-<script src="js/app.js?v=17"></script>
+<script src="js/store.js?v=18"></script>
+<script src="js/app.js?v=18"></script>
 </body>
 </html>
