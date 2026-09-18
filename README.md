@@ -9,14 +9,14 @@ Projeto front-end puro (sem build, sem framework) com site público + painel fun
 ## ✨ O que o projeto faz
 
 **Site público:**
-- Explorar (`#/explorar`, tela inicial) — serviços, lojas e profissionais com filtro por tipo, texto, categoria, distância, avaliação e preço
+- Explorar (`#/explorar`, tela inicial) — lojas e profissionais com filtro por tipo, texto, distância, avaliação e preço (serviços aparecem no perfil do prestador e no modal)
 - Perfil público (`#/perfil/:id`) — loja (vitrine, catálogo, info) ou prestador (serviços, info)
 - Sacola (`#/carrinho`) com checkout e Nexo Pay (demo)
 - Páginas institucionais: Como funciona, Para empresas
 - Login e Cadastro com 5 perfis: Pessoa física, Empresa, Prestadora, Autônomo e Loja
 
 **Painel logado (`#/app/*`):**
-- Dashboard diferente para contratante vs. prestador (KPIs, próximos serviços, gastos, oportunidades)
+- Dashboard por papel (ações, atenção, próximos e listas; loja com vitrine e pedidos)
 - Meus pedidos / Oportunidades com filtro por status (pedidos dirigidos aguardam confirmação da empresa)
 - Detalhe do pedido com timeline, confirmação/recusa (empresa) e propostas legadas com aceitar/recusar
 - Meus serviços: a prestadora/autônomo cadastra o que faz (o cliente pede direto dali)

@@ -62,7 +62,6 @@ function isEmp(u) { return !!u && u.tipo === "empresa"; }
 function isLoja(u) { return !!u && u.tipo === "loja"; }
 function isCliente(u) { return !!u && u.tipo === "cliente"; }
 function canContract(u) { return isEmp(u) || isLoja(u) || isCliente(u); }
-function hasStore(u) { return isProv(u) || isLoja(u); }
 function tipoLabel(t) { return t === "empresa" ? "Empresa contratante" : t === "prestadora" ? "Empresa prestadora" : t === "loja" ? "Loja / Comércio local" : t === "cliente" ? "Pessoa física" : "Profissional autônomo"; }
 function favKind(u) { return !u ? "empresa" : u.tipo === "autonomo" ? "profissional" : u.tipo === "loja" ? "loja" : "empresa"; }
 
@@ -210,19 +209,20 @@ function paintChrome() {
   }
   var n = unreadNotifs(), bell = $("#bellDot");
   if (bell) { bell.textContent = n; bell.style.display = n ? "flex" : "none"; }
+  var ta = $("#topAsk");
+  if (ta) ta.style.display = (u && isLabor(u)) ? "none" : "";
   paintCartBadge();
 }
 function hidePop() { var p = $("#notifPop"); if (p) p.hidden = true; }
 function renderPop() {
   var p = $("#notifPop"); if (!p) return;
   var u = me();
-  var list = u ? db.notifs.filter(function (x) { return x.userId === u.id; }).slice(0, 5) : null;
-  p.innerHTML = "<h4>Notificações</h4>" + (list
-    ? (list.length ? list.map(function (x) {
+  if (!u) { location.hash = "#/login"; return; }
+  var list = db.notifs.filter(function (x) { return x.userId === u.id; }).slice(0, 5);
+  p.innerHTML = "<h4>Notificações</h4>" + (list.length ? list.map(function (x) {
         return '<div class="notif"><strong>' + (x.lida ? "" : "● ") + esc(x.titulo) + "</strong><p>" + esc(x.texto) + "</p><small>" + timeAgo(x.criadoEm) + "</small></div>";
       }).join("") + '<a class="btn btn-secondary btn-sm btn-block" href="#/app/notificacoes">Ver todas</a>'
-      : '<div class="notif"><p>Sem notificações por aqui.</p></div>')
-    : '<div class="notif"><strong>Nova proposta</strong><p>João Segurança enviou proposta para “Instalar 8 câmeras”.</p><small>há 12 min</small></div><div class="notif"><strong>Agendamento confirmado</strong><p>Manutenção de ar-condicionado · Qui 09:00.</p><small>há 1 h</small></div><div class="notif"><strong>Avaliação recebida</strong><p>Você recebeu 5★ de Hotel Atlântico.</p><small>ontem</small></div><a class="btn btn-secondary btn-sm btn-block" href="#/login">Entrar para ver as suas</a>');
+      : '<div class="notif"><p>Sem notificações por aqui.</p></div>');
   p.hidden = !p.hidden;
 }
 
@@ -243,7 +243,7 @@ function svcCard(s) {
 }
 function proCard(p) {
   var r = ratingOf(p.id), on = (p.disponibilidade === "hoje"), fk = favKind(p), fav = isFav(fk, p.id);
-  return '<article class="pro"><div class="pro-top"><span class="pro-avatar" style="background:' + p.cor + '">' + esc(initials(p.nome)) + "</span>" +
+  return '<article class="pro"><div class="pro-top"><span class="pro-avatar' + photoCls(p.logoFoto) + '" style="background:' + p.cor + '">' + esc(initials(p.nome)) + photoImg(p.logoFoto) + "</span>" +
     '<div style="flex:1"><strong>' + esc(p.nome) + "</strong><small>" + esc((p.especialidades || [tipoLabel(p.tipo)])[0]) + (p.verificado ? " · ✓ Verificado" : "") + "</small>" +
     '<span class="avail' + (on ? "" : " off") + '"><i></i>' + esc(dispLabel(p.disponibilidade)) + "</span></div>" +
     '<button class="fav' + (fav ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + p.id + "')\" aria-label=\"Favoritar\">" + (fav ? "❤️" : "🤍") + "</button></div>" +
@@ -262,7 +262,6 @@ var SHOP_CATS = [
   { id: "Saúde", name: "Saúde", icon: "💊" },
   { id: "Outros", name: "Outros", icon: "🏪" }
 ];
-function shopCatName(id) { for (var i = 0; i < SHOP_CATS.length; i++) if (SHOP_CATS[i].id === id) return SHOP_CATS[i].name; return id || "Loja"; }
 function shopProducts(lojaId) { return (db.products || []).filter(function (p) { return p.lojaId === lojaId; }); }
 /* Categorias do catálogo na ordem do dono (só as que têm produto). */
 function shopCats(lojaId) {
@@ -294,6 +293,16 @@ function menuHTML(u) {
 var FTIPO = "todos";
 function openNow(p) { return !!p && p.disponibilidade === "hoje"; }
 function coverClass(u) { return "cover-" + ((u && u.capa) || "g0"); }
+/* Fotos do dono (null = gradiente/iniciais). O onerror garante fallback se quebrar/offline. */
+function photoCls(f) { return f ? " has-photo" : ""; }
+function photoImg(f) {
+  if (!f) return "";
+  return '<img src="' + esc(f) + '" alt="" loading="lazy" onerror="this.remove()">';
+}
+function coverImg(u) {
+  if (!u || !u.capaFoto) return "";
+  return '<img class="cover-img" src="' + esc(u.capaFoto) + '" alt="" loading="lazy" onerror="this.remove()">';
+}
 function storePrice(u) { return u && u.precoBase > 0 ? "A partir de " + BRL(u.precoBase) : "A combinar"; }
 
 /* ----- redes e contato da loja ----- */
@@ -325,7 +334,7 @@ function storeCard(p) {
   var r = ratingOf(p.id), fk = favKind(p), fav = isFav(fk, p.id);
   var cat = p.tipo === "loja" ? (p.categoriaLoja || "Loja") : ((p.especialidades || [])[0] || tipoLabel(p.tipo));
   return '<article class="store-card" onclick="location.hash=\'#/perfil/' + p.id + '\'">' +
-    '<span class="pro-avatar store-logo" style="background:' + p.cor + '">' + esc(initials(p.nome)) + "</span>" +
+    '<span class="pro-avatar store-logo' + photoCls(p.logoFoto) + '" style="background:' + p.cor + '">' + esc(initials(p.nome)) + photoImg(p.logoFoto) + "</span>" +
     '<div class="store-info"><strong>' + esc(p.nome) + (p.verificado ? ' <span class="seal">✓</span>' : "") + "</strong>" +
     '<span class="store-sub">★ ' + (r.t ? r.m.toFixed(1).replace(".", ",") + " (" + r.t + ")" : "novo") + " · " + esc(cat) + " · " + (p.dist != null ? p.dist + " km" : esc(p.cidade || "")) + "</span>" +
     '<span class="avail' + (openNow(p) ? "" : " off") + '"><i></i>' + (openNow(p) ? "Aberto agora" : esc(dispLabel(p.disponibilidade))) + "</span></div>" +
@@ -357,41 +366,14 @@ function shopPriceMatch(p) {
 function byRating(a, b) { return ((ratingOf(b.id).m || 0) - (ratingOf(a.id).m || 0)) || ((a.dist || 99) - (b.dist || 99)); }
 
 /* ----- buscar (pesquisa funcional, sem reload) ----- */
-var F = { q: "", cats: {}, loc: "", dist: 15, rating: 4.5, price: "", date: "", avail: true, sort: "relevance" };
+var F = { q: "", loc: "", dist: 15, rating: 4.5, price: "", date: "", avail: true };
 function renderBuscar(q) {
-  F.q = q.q || ""; F.cats = {};
-  if (q.cat) F.cats[q.cat] = true;
+  F.q = q.q || "";
   if (q.loc) F.loc = q.loc;
   $all("#typeSeg [data-tipo]").forEach(function (b) { b.classList.toggle("active", (b.getAttribute("data-tipo") || "todos") === FTIPO); });
   $("#fQ").value = F.q;
   if (q.loc) $("#fLoc").value = q.loc;
-  $("#fCats").innerHTML = CATS.map(function (c) {
-    return '<label><input type="checkbox" data-cat="' + c.id + '"' + (F.cats[c.id] ? " checked" : "") + "> " + c.icon + " " + esc(c.name) + "</label>";
-  }).join("");
-  $all("#fCats input").forEach(function (cb) { cb.addEventListener("change", function () { F.cats[cb.getAttribute("data-cat")] = cb.checked; applySearch(); }); });
   applySearch();
-}
-function svcMatch(s) {
-  var q = norm(F.q || "");
-  if (q) {
-    var prov = svcProviders(s).map(function (p) { return p.nome + " " + (p.especialidades || []).join(" "); }).join(" ");
-    var hay = norm(s.titulo + " " + catOf(s.cat).name + " " + s.desc + " " + prov);
-    if (hay.indexOf(q) < 0) return false;
-  }
-  var anyCat = Object.keys(F.cats).some(function (k) { return F.cats[k]; });
-  if (anyCat && !F.cats[s.cat]) return false;
-  if (s.dist > F.dist) return false;
-  if (svcRating(s).m < F.rating) return false;
-  if (F.price === "low" && s.preco > 300) return false;
-  if (F.price === "mid" && (s.preco < 300 || s.preco > 800)) return false;
-  if (F.price === "high" && s.preco < 800) return false;
-  if (F.avail && ["agenda"].indexOf(s.disp) >= 0) return false;
-  var loc = norm(F.loc || "");
-  if (loc && loc.indexOf("aurora") < 0) {
-    var where = norm(svcProviders(s).map(function (p) { return p.cidade || ""; }).join(" "));
-    if (where.indexOf(norm(loc.split("/")[0]).trim()) < 0 && norm(s.desc).indexOf(norm(loc.split("/")[0]).trim()) < 0) return false;
-  }
-  return true;
 }
 function proMatch(p) {
   var q = norm(F.q || "");
@@ -405,31 +387,23 @@ function applySearch() {
   F.rating = +$("#fRating").value; F.price = $("#fPrice").value;
   F.date = $("#fDate").value; F.avail = $("#fAvail").checked;
   var showSvcs = FTIPO !== "lojas", showShops = FTIPO !== "servicos";
-  var svcs = showSvcs ? db.services.filter(svcMatch) : [];
-  svcs.sort(function (a, b) {
-    if (F.sort === "price") return a.preco - b.preco;
-    if (F.sort === "rating") return svcRating(b).m - svcRating(a).m;
-    return (svcRating(b).m * 2 - b.dist * 0.05) - (svcRating(a).m * 2 - a.dist * 0.05);
-  });
   var pros = showSvcs ? professionals().filter(function (p) { return proMatch(p) && peopleMatch(p); }).sort(byRating).slice(0, 6) : [];
   var foundShops = showShops ? shops().filter(function (p) { return shopMatch(p) && peopleMatch(p) && shopPriceMatch(p); }) : [];
   $("#searchTitle").textContent = F.q ? "Resultados para “" + F.q + "”" : "Explorar Vila Aurora";
-  $("#searchCount").textContent = svcs.length + " serviço(s) · " + foundShops.length + " loja(s)" + (F.q && showSvcs ? " · " + pros.length + " profissional(is)" : "") + " · atualiza automaticamente";
+  $("#searchCount").textContent = foundShops.length + " loja(s)" + (F.q && showSvcs ? " · " + pros.length + " profissional(is)" : "") + " · atualiza automaticamente";
   $("#activeFilters").textContent = "📍 " + (F.loc || "Vila Aurora") + " · até " + F.dist + " km" + (F.date ? " · " + fdateFull(F.date) : "");
   var html = "";
-  var anyCat = Object.keys(F.cats).some(function (k) { return F.cats[k]; });
-  var isShowcase = !F.q && FTIPO === "todos" && !anyCat && F.dist === 15 && +F.rating === 4.5 && !F.price && F.avail;
+  var isShowcase = !F.q && FTIPO === "todos" && F.dist === 15 && +F.rating === 4.5 && !F.price && F.avail;
   if (isShowcase) {
     var openAll = providers().concat(shops()).filter(openNow).sort(byRating).slice(0, 6);
     if (openAll.length) html += "<h3>🔥 Abertas agora</h3><div class='store-list' style='margin-bottom:1.4rem'>" + openAll.map(storeCard).join("") + "</div>";
     var topRated = db.users.filter(isLabor).sort(byRating).slice(0, 4);
     html += "<h3>★ Bem avaliados</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + topRated.map(proCard).join("") + "</div>";
   }
-  if (svcs.length) html += "<h3>Serviços</h3><div class='cards-grid two' style='margin-bottom:1.4rem'>" + svcs.map(svcCard).join("") + "</div>";
   if (foundShops.length) html += "<h3>Lojas</h3><div class='store-list' style='margin-bottom:1.4rem'>" + foundShops.map(storeCard).join("") + "</div>";
   if (pros.length) html += "<h3>Profissionais</h3><div class='cards-grid two'>" + pros.map(proCard).join("") + "</div>";
   $("#searchGrid").innerHTML = html;
-  var hasAny = svcs.length + foundShops.length > 0;
+  var hasAny = foundShops.length + pros.length > 0;
   $("#searchEmpty").hidden = hasAny;
   $("#searchGrid").style.display = hasAny ? "" : "none";
 }
@@ -452,7 +426,7 @@ function storeHeroHTML(u, r) {
   var fk = favKind(u), favOn = isFav(fk, u.id);
   var prices = shopProducts(u.id).filter(function (p) { return p.preco > 0; }).map(function (p) { return p.preco; });
   var minP = prices.length ? " · a partir de " + BRL(Math.min.apply(null, prices)) : "";
-  return '<div class="food-cover ' + coverClass(u) + '"><div class="food-top"><button class="food-iconbtn" onclick="if(history.length>1){history.back();}else{location.hash=\'#/\';}" aria-label="Voltar">←</button>' +
+  return '<div class="food-cover ' + coverClass(u) + '">' + coverImg(u) + '<div class="food-top"><button class="food-iconbtn" onclick="if(history.length>1){history.back();}else{location.hash=\'#/\';}" aria-label="Voltar">←</button>' +
     '<span style="flex:1"></span><button class="food-iconbtn fav' + (favOn ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + u.id + "')\" aria-label=\"Favoritar\">" + (favOn ? "❤️" : "🤍") + "</button></div></div>" +
     '<div class="profile-body food-body">' +
     '<span class="food-logo" style="background:' + u.cor + '">' + esc(initials(u.nome)) + "</span>" +
@@ -463,7 +437,7 @@ function storeHeroHTML(u, r) {
 }
 /* Linha do produto em pé (retrato): foto em cima, nome, preço e "+" embaixo. */
 function prodMenuHTML(p, loja) {
-  return '<div class="menu-card-v"><span class="mi-thumb" style="background:' + (loja.cor || "#334155") + '">' + esc(initials(p.nome)) + "</span>" +
+  return '<div class="menu-card-v"><span class="mi-thumb' + photoCls(p.foto) + '" style="background:' + (loja.cor || "#334155") + '">' + esc(initials(p.nome)) + photoImg(p.foto) + "</span>" +
     "<strong>" + esc(p.nome) + "</strong><small>" + esc(p.desc || "Sem descrição") + "</small>" +
     '<div class="menu-card-foot"><strong>' + (p.preco > 0 ? BRL(p.preco) : "A combinar") + '</strong><button class="add-btn" onclick="Nexo.cartAdd(\'' + loja.id + "','" + p.id + "')\" aria-label=\"Adicionar à sacola\">+</button></div></div>";
 }
@@ -511,7 +485,7 @@ function renderPerfil(id) {
     ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + waTop + '">' + waIcon() + ' Chamar no WhatsApp</a>'
     : '<button class="btn btn-primary" onclick="Nexo.askService(\'\',\'' + u.id + '\')">Pedir serviço</button>';
   if (!isMe) ctaRow += '<button class="btn btn-secondary" onclick="Nexo.talk(\'' + u.id + "')\">Conversar</button>" +
-    '<button class="fav' + (favOn ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + u.id + "')\">" + (favOn ? "❤️ Salvo" : "🤍 Salvar") + "</button>";
+    '<button class="fav wide' + (favOn ? " on" : "") + '" onclick="Nexo.fav(\'' + fk + "','" + u.id + "')\">" + (favOn ? "❤️ Salvo" : "🤍 Salvar") + "</button>";
   var midTab = isShop
     ? '<button class="' + (PTAB === "catalogo" ? "active" : "") + '" onclick="Nexo.ptab(\'catalogo\')">Catálogo (' + myProds.length + ")</button>"
     : '<button class="' + (PTAB === "servicos" ? "active" : "") + '" onclick="Nexo.ptab(\'servicos\')">Serviços (' + mySvcs.length + ")</button>";
@@ -524,8 +498,8 @@ function renderPerfil(id) {
       foodCta = '<div class="food-cta"><small>' + esc(minTxt) + " · " + esc(u.nome) + "</small>" + (waTop ? '<a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="' + waTop + '">WhatsApp</a>' : "") + '<a class="btn btn-secondary btn-sm" href="#/carrinho">🛒 Sacola</a></div>';
     }
   } else {
-    heroShell = '<div class="profile-hero"><div class="profile-cover ' + coverClass(u) + '"></div><div class="profile-body">' +
-      '<span class="pro-avatar profile-avatar" style="background:' + u.cor + '">' + esc(initials(u.nome)) + "</span>" +
+    heroShell = '<div class="profile-hero"><div class="profile-cover ' + coverClass(u) + '">' + coverImg(u) + '</div><div class="profile-body">' +
+      '<span class="pro-avatar profile-avatar' + photoCls(u.logoFoto) + '" style="background:' + u.cor + '">' + esc(initials(u.nome)) + photoImg(u.logoFoto) + "</span>" +
       "<h1>" + esc(u.nome) + "</h1>" +
       '<p class="muted" style="margin:0">' + esc(tipoLabel(u.tipo)) + " · " + esc(u.cidade || "") + (u.verificado ? ' · <span class="badge ok">✓ Verificado</span>' : "") + "</p>" +
       '<div class="row">' + starsHTML(r.m, r.t) + '<span class="muted">· ' + (u.dist != null ? u.dist + " km" : esc(u.cidade || "")) + "</span></div>";
@@ -538,7 +512,7 @@ function renderPerfil(id) {
 }
 
 /* ----- auth ----- */
-var loginTipo = "empresa", signupTipo = "empresa";
+var signupTipo = "empresa";
 function touchSteps(n) {
   $all("#signupSteps span").forEach(function (s, i) { s.classList.toggle("on", i < n); });
 }
@@ -583,12 +557,6 @@ function doSwap(id) {
   return target;
 }
 function bindAuth() {
-  $all("#view-login .role").forEach(function (b) {
-    b.addEventListener("click", function () {
-      loginTipo = b.getAttribute("data-role");
-      $all("#view-login .role").forEach(function (x) { x.classList.toggle("active", x === b); });
-    });
-  });
   var demoBox = document.createElement("div");
   demoBox.className = "row";
   demoBox.style.margin = ".4rem 0 .8rem";
@@ -681,6 +649,7 @@ function openRecover() {
    PAINEL (APP)
    ================================================================ */
 var CHAT = null, AGV = "lista", REQSEG = "todas", CHATBACK = true;
+var PHOTO_TMP = {};
 
 function openOrders(u) { return u && u.tipo === "loja" ? (db.orders || []).filter(function (o) { return o.lojaId === u.id && ["pago", "enviado"].indexOf(o.status) >= 0; }).length : 0; }
 var SIDE = [
@@ -692,6 +661,7 @@ var SIDE = [
   { r: "produtos", icon: "🏷", label: "Meu catálogo", show: function () { return isLoja(me()); } },
   { r: "agenda", icon: "📅", label: "Agenda" },
   { r: "mensagens", icon: "💬", label: "Chat", count: unreadMsgs },
+  { r: "favoritos", icon: "🤍", label: "Favoritos", count: function () { var u = me(); return u ? db.favs.filter(function (x) { return x.userId === u.id; }).length : 0; } },
   { r: "perfil", icon: "👤", label: "Perfil" }
 ];
 function paintSide(cur) {
@@ -753,6 +723,10 @@ function agItemHTML(a) {
 }
 
 /* ----- dashboard ----- */
+function actCardHTML(a) {
+  return '<a class="act-card" href="' + a.h + '"><span class="act-ic">' + a.icon + "</span><span style='flex:1;min-width:0'><strong>" + a.label + "</strong>" +
+    (a.n ? '</span><span class="count">' + a.n + "</span>" : "</span>") + "<span aria-hidden='true'>→</span></a>";
+}
 function vDashboard() {
   var u = me(), el = $("#appContent");
   if (canContract(u)) {
@@ -760,52 +734,47 @@ function vDashboard() {
     var open = my.filter(function (r) { return ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0; });
     var waiting = my.filter(function (r) { return r.status === "solicitado"; });
     var next = db.schedules.filter(function (a) { return a.contratanteId === u.id && ["agendado", "em_andamento"].indexOf(a.status) >= 0; });
-    var spent = db.proposals.filter(function (p) { return p.status === "aceita" && my.some(function (r) { return r.id === p.reqId; }); }).reduce(function (a, p) { return a + p.valor; }, 0);
+    var toRate = db.schedules.filter(function (a) { return a.contratanteId === u.id && a.status === "concluido"; });
+    var unread = unreadMsgs();
+    var bits = [];
+    if (waiting.length) bits.push(waiting.length + " aguardando confirmação");
+    if (next.length) bits.push(next.length + " agendado(s)");
+    if (toRate.length) bits.push(toRate.length + " para avaliar");
+    var attention = waiting.slice(0, 2).map(reqItemHTML).join("") + toRate.slice(0, 2).map(agItemHTML).join("");
     var shopPanel = isLoja(u) ? '<div class="panel"><h3>🏪 Minha loja</h3><div class="store-list">' + storeCard(u) + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/perfil/' + u.id + '">Ver vitrine</a><a class="btn btn-secondary btn-sm" href="#/app/produtos">Meus produtos (' + shopProducts(u.id).length + ')</a><a class="btn btn-primary btn-sm" href="#/app/perfil">Editar loja</a></div></div>' : "";
-    var catPanel = isLoja(u) ? '<div class="panel"><h3>🏷 Categorias do catálogo</h3>' + catManagerHTML(u) + "</div>" : "";
-    var oppList = isLoja(u) ? db.requests.filter(function (r) { return r.empresaId !== u.id && ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0 && !db.proposals.some(function (p) { return p.reqId === r.id && p.prestId === u.id; }); }) : [];
-    var oppPanel = isLoja(u) ? '<div class="panel"><h3>🎯 Oportunidades para você (' + oppList.length + ')</h3><p class="muted">Pedidos abertos na região. Sua loja também pode enviar propostas.</p><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver oportunidades →</a></div>' : "";
     var recvAll = isLoja(u) ? (db.orders || []).filter(function (o) { return o.lojaId === u.id; }).sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); }) : [];
     var recvPanel = isLoja(u) ? '<div class="panel"><h3>🧾 Últimos pedidos</h3>' + (recvAll.length ? recvAll.slice(0, 3).map(function (o) { return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line-soft);padding:.45rem 0"><span style="font-size:.88rem"><strong>' + esc(o.buyer.nome) + "</strong> · " + BRL(o.total) + "</span>" + orderBadge(o.status) + "</div>"; }).join("") + '<div class="row" style="margin-top:.5rem"><a class="btn btn-secondary btn-sm" href="#/app/pedidos">Ver todos →</a></div>' : "<p class='muted'>Nenhum pedido ainda.</p>") + "</div>" : "";
-    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>Acompanhe pedidos, confirmações e serviços.</p>" +
-      '<div class="kpis"><div class="kpi"><small>Pedidos abertos</small><strong>' + open.length + '</strong></div><div class="kpi"><small>Aguardando confirmação</small><strong>' + waiting.length + '</strong><span class="delta">pelas empresas</span></div><div class="kpi"><small>Próximos serviços</small><strong>' + next.length + '</strong></div><div class="kpi"><small>Total investido</small><strong style="font-size:1.25rem">' + BRL(spent) + "</strong></div></div>" +
-      '<div class="dash-grid"><div><div class="panel"><h3>Próximos serviços</h3>' + (next.length ? next.map(agItemHTML).join("") : "<p class='muted'>Nada agendado. <a class='link' href='#/explorar'>Buscar prestadores →</a></p>") + '</div>' +
-      '<div class="panel"><h3>Meus pedidos</h3><div class="req-list">' + (my.length ? my.slice(0, 4).map(reqItemHTML).join("") : "<p class='muted'>Nenhum pedido ainda. Busque uma empresa e peça o serviço.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/solicitacoes">Ver todos</a><a class="btn btn-primary btn-sm" href="#/explorar">Buscar prestador</a></div></div></div>' +
-      '<div><div class="panel"><h3>Gastos por serviço</h3>' + barsHTML(my) + '</div>' + shopPanel + catPanel + oppPanel + recvPanel + '</div></div></div>';
-    var fc = $("#frmCat");
-    if (fc) fc.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var u2 = me(); if (!isLoja(u2)) return;
-      var nn = $("#catNome").value.trim().replace(/["']/g, "");
-      if (nn.length < 2) { toast("Nome muito curto."); return; }
-      if (!u2.menuCats) u2.menuCats = [];
-      if (u2.menuCats.indexOf(nn) < 0) u2.menuCats.push(nn);
-      save(); toast("Categoria adicionada! 🏷"); refresh();
-    });
+    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>" + (bits.length ? esc(bits.join(" · ")) + "." : "Tudo em dia 🎉") + "</p>" +
+      '<div class="act-grid">' + [
+        { h: "#/explorar", icon: "＋", label: "Pedir serviço", n: null },
+        { h: "#/app/solicitacoes", icon: "📋", label: "Meus pedidos", n: open.length || null },
+        { h: "#/app/agenda", icon: "📅", label: "Agenda", n: next.length || null },
+        { h: "#/app/mensagens", icon: "💬", label: "Chat", n: unread || null }
+      ].map(actCardHTML).join("") + "</div>" +
+      (attention ? '<div class="panel"><h3>⚠️ Atenção</h3><div class="req-list">' + attention + "</div></div>" : "") +
+      '<div class="dash-grid"><div><div class="panel"><h3>Próximos serviços</h3>' + (next.slice(0, 3).map(agItemHTML).join("") || "<p class='muted'>Nada agendado. <a class='link' href='#/explorar'>Buscar prestadores →</a></p>") + '</div>' +
+      '<div class="panel"><h3>Meus pedidos</h3><div class="req-list">' + (my.slice(0, 4).map(reqItemHTML).join("") || "<p class='muted'>Nenhum pedido ainda. Busque uma empresa e peça o serviço.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/solicitacoes">Ver todos</a><a class="btn btn-primary btn-sm" href="#/explorar">Buscar prestador</a></div></div></div>' +
+      '<div>' + shopPanel + recvPanel + "</div></div>";
   } else {
-    var open2 = db.requests.filter(function (r) { return ["solicitado", "recebendo_propostas"].indexOf(r.status) >= 0 && !db.proposals.some(function (p) { return p.reqId === r.id && p.prestId === u.id; }); });
-    var sent = db.proposals.filter(function (p) { return p.prestId === u.id; });
+    var pend = db.requests.filter(function (r) { return r.prestId === u.id && r.status === "solicitado"; });
     var sched = db.schedules.filter(function (a) { return a.prestId === u.id && ["agendado", "em_andamento"].indexOf(a.status) >= 0; });
-    var done = db.schedules.filter(function (a) { return a.prestId === u.id && ["concluido", "avaliado"].indexOf(a.status) >= 0; });
-    var earned = sent.filter(function (p) { return p.status === "aceita"; }).reduce(function (a, p) { return a + p.valor; }, 0);
+    var mySvcs = db.services.filter(function (s) { return (s.prestadores || []).indexOf(u.id) >= 0; });
+    var unread2 = unreadMsgs();
+    var bits2 = [];
+    if (pend.length) bits2.push(pend.length + " aguardando sua confirmação");
+    if (sched.length) bits2.push(sched.length + " agendado(s)");
     var rt = ratingOf(u.id);
-    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>Oportunidades, propostas e agenda.</p>" +
-      '<div class="kpis"><div class="kpi"><small>Novas oportunidades</small><strong>' + open2.length + '</strong></div><div class="kpi"><small>Propostas enviadas</small><strong>' + sent.length + '</strong></div><div class="kpi"><small>Ganhos (aceitas)</small><strong style="font-size:1.25rem">' + BRL(earned) + '</strong></div><div class="kpi"><small>Avaliação</small><strong>' + (rt.t ? rt.m.toFixed(1).replace(".", ",") + "★" : "Novo") + '</strong><span class="delta">' + rt.t + ' avaliações</span></div></div>' +
-      '<div class="dash-grid"><div><div class="panel"><h3>🆕 Oportunidades para você</h3><div class="req-list">' + (open2.slice(0, 4).map(reqItemHTML).join("") || "<p class='muted'>Sem novidades agora.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver todas →</a><a class="btn btn-primary btn-sm" href="#/app/servicos">Meus serviços</a></div></div></div>' +
-      '<div><div class="panel"><h3>Serviços agendados</h3>' + (sched.length ? sched.map(agItemHTML).join("") : "<p class='muted'>Nada agendado.</p>") + '</div><div class="panel"><h3>Concluídos (' + done.length + ")</h3>" + (done.slice(0, 3).map(agItemHTML).join("") || "<p class='muted'>—</p>") + "</div></div></div>";
+    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>" + (bits2.length ? esc(bits2.join(" · ")) + "." : "Nenhuma pendência. " + starsHTML(rt.m, rt.t)) + "</p>" +
+      '<div class="act-grid">' + [
+        { h: "#/app/oportunidades", icon: "⏳", label: "Confirmar", n: pend.length || null },
+        { h: "#/app/agenda", icon: "📅", label: "Agenda", n: sched.length || null },
+        { h: "#/app/servicos", icon: "🛠", label: "Meus serviços", n: mySvcs.length || null },
+        { h: "#/app/mensagens", icon: "💬", label: "Chat", n: unread2 || null }
+      ].map(actCardHTML).join("") + "</div>" +
+      (pend.length ? '<div class="panel"><h3>⏳ Aguardando sua confirmação</h3><div class="req-list">' + pend.slice(0, 3).map(reqItemHTML).join("") + '</div><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver todas →</a></div>' : "") +
+      '<div class="panel"><h3>Serviços agendados</h3>' + (sched.slice(0, 3).map(agItemHTML).join("") || "<p class='muted'>Nada agendado.</p>") + "</div>";
   }
 }
-function barsHTML(reqs) {
-  var vals = reqs.map(function (r) {
-    var acc = db.proposals.filter(function (p) { return p.reqId === r.id && p.status === "aceita"; })[0];
-    return { t: r.titulo, v: acc ? acc.valor : 0 };
-  }).filter(function (x) { return x.v > 0; }).slice(0, 6);
-  if (!vals.length) return "<p class='muted'>Os valores aparecem aqui após aceitar propostas.</p>";
-  var max = Math.max.apply(null, vals.map(function (x) { return x.v; }));
-  return '<div class="bars">' + vals.map(function (x) { return "<i style='height:" + Math.max(12, Math.round(x.v / max * 100)) + "%' title='" + esc(x.t) + ": " + BRL(x.v) + "'></i>"; }).join("") + "</div>" +
-    vals.map(function (x) { return "<p class='muted' style='font-size:.8rem;margin:.3rem 0'>" + esc(x.t.slice(0, 34)) + " — <strong>" + BRL(x.v) + "</strong></p>"; }).join("");
-}
-
 /* ----- solicitações / oportunidades / detalhe ----- */
 function vReqList(mine) {
   var u = me(), el = $("#appContent");
@@ -851,7 +820,7 @@ function vReqDetail(id) {
     (isResp && r.status !== "solicitado" ? '<span class="badge">Pedido dirigido a você</span>' : "") + "</div></div>";
   if (directed) {
     var drt = ratingOf(directed.id);
-    html += "<h3>Empresa responsável</h3><div class='panel'><div class='row'><span class='pro-avatar' style='background:" + directed.cor + ";width:40px;height:40px;font-size:.8rem'>" + esc(initials(directed.nome)) + "</span><div style='flex:1'><strong>" + esc(directed.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(drt.m, drt.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + directed.id + "'>Ver perfil</a></div></div>";
+    html += "<h3>Empresa responsável</h3><div class='panel'><div class='row'><span class='pro-avatar" + photoCls(directed.logoFoto) + "' style='background:" + directed.cor + ";width:40px;height:40px;font-size:.8rem'>" + esc(initials(directed.nome)) + photoImg(directed.logoFoto) + "</span><div style='flex:1'><strong>" + esc(directed.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(drt.m, drt.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + directed.id + "'>Ver perfil</a></div></div>";
   } else {
     html += "<h3>Propostas recebidas (" + props.length + ")</h3>";
     if (!props.length) html += '<div class="empty"><div class="empty-art">💡</div><p class="muted">Ainda sem propostas.</p></div>';
@@ -917,11 +886,6 @@ function submitDirected(svcId, provId) {
   toast("Pedido enviado! Aguarde a confirmação da empresa.");
   location.hash = "#/app/solicitacao/" + r.id;
 }
-function vNova() {
-  toast("Escolha o prestador e peça o serviço direto a ele.");
-  location.hash = "#/explorar";
-}
-
 /* ----- agenda ----- */
 var AGDAY = null;
 function myAgenda() {
@@ -968,7 +932,7 @@ function vMsgs() {
     var o = userById(cv.parts.filter(function (p) { return p !== u.id; })[0]) || {};
     var un = db.msgs.filter(function (m) { return m.convId === cv.id && m.deId !== u.id && !m.lida; }).length;
     return '<div class="thread' + (c && c.id === cv.id ? " active" : "") + '" onclick="Nexo.chat(\'' + cv.id + "')\">" +
-      '<span class="pro-avatar" style="background:' + (o.cor || "#334155") + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(o.nome)) + "</span>" +
+      '<span class="pro-avatar' + photoCls(o.logoFoto) + '" style="background:' + (o.cor || "#334155") + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(o.nome)) + photoImg(o.logoFoto) + "</span>" +
       "<div style='flex:1'><strong style='font-size:.88rem'>" + esc(o.nome || "") + (un ? ' <span class="status info">' + un + " nova(s)</span>" : "") + "</strong><small>" + esc(cv.titulo || "") + "</small></div></div>";
   }).join("") : '<div class="empty"><div class="empty-art">💬</div><p class="muted">Sem conversas. Abra um perfil e clique em Conversar.</p></div>';
   html += "</div>";
@@ -1032,9 +996,20 @@ function vProdutos() {
     return "<h3>" + esc(c) + " (" + items.length + ")</h3><div class='store-list' style='margin-bottom:1rem'>" + items.map(prodRowHTML).join("") + "</div>";
   }).join("");
   $("#appContent").innerHTML = "<h2>Meus produtos (" + list.length + ")</h2><p class='muted'>É o catálogo da sua vitrine. Preço 0 = a combinar.</p>" +
+    '<div class="panel"><h3>🏷 Categorias do catálogo</h3>' + catManagerHTML(u) + "</div>" +
     '<div class="row" style="margin-bottom:1rem"><button class="btn btn-primary" onclick="Nexo.prodAdd()">+ Adicionar produto</button><a class="btn btn-secondary" href="#/perfil/' + u.id + '">Ver minha vitrine</a></div>' +
     (list.length ? grouped
       : '<div class="empty"><div class="empty-art">🏷</div><h3>Catálogo vazio</h3><p class="muted">Adicione seu primeiro produto. Ex.: nome, preço e descrição.</p><button class="btn btn-primary" onclick="Nexo.prodAdd()">+ Adicionar produto</button></div>');
+  var fc = $("#frmCat");
+  if (fc) fc.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var u2 = me(); if (!isLoja(u2)) return;
+    var nn = $("#catNome").value.trim().replace(/["']/g, "");
+    if (nn.length < 2) { toast("Nome muito curto."); return; }
+    if (!u2.menuCats) u2.menuCats = [];
+    if (u2.menuCats.indexOf(nn) < 0) u2.menuCats.push(nn);
+    save(); toast("Categoria adicionada! 🏷"); refresh();
+  });
 }
 function catDataList() {
   var u = me(), cats = (u && u.menuCats) || ["Geral"];
@@ -1116,6 +1091,7 @@ function prodFormHTML(p) {
     '<label class="field"><span>Preço R$ (0 = a combinar)</span><input id="pdPreco" type="number" min="0" value="' + (p.preco || 0) + '"></label>' +
     '<label class="field"><span>Categoria</span><input id="pdCat" list="pdCatList" value="' + esc(p.cat || "Geral") + '" autocomplete="off">' + catDataList() + "</label>" +
     '<label class="field"><span>Descrição</span><textarea id="pdDesc" class="input" rows="2" placeholder="Ex.: Viscose, P ao GG.">' + esc(p.desc || "") + "</textarea></label>" +
+    '<label class="field"><span>Foto do produto</span><input id="pdFoto" type="file" accept="image/*"><small class="muted">Opcional. JPG/PNG até 5MB.</small></label>' +
     '<p class="form-error" id="pdErr" hidden></p>' +
     '<div class="row"><button type="button" class="btn btn-secondary" onclick="Nexo.close()">Cancelar</button><button class="btn btn-primary" type="submit">Salvar</button></div></form>';
 }
@@ -1129,7 +1105,7 @@ function renderCarrinho() {
   var total = cartTotal();
   var meU = me();
   function rowHTML(x, cor) {
-    return '<div class="prod"><span class="mi-thumb" style="background:' + cor + ';width:44px;height:44px;font-size:.9rem">' + esc(initials(x.p.nome)) + "</span>" +
+    return '<div class="prod"><span class="mi-thumb' + photoCls(x.p.foto) + '" style="background:' + cor + ';width:44px;height:44px;font-size:.9rem">' + esc(initials(x.p.nome)) + photoImg(x.p.foto) + "</span>" +
       '<div class="prod-info"><strong>' + esc(x.p.nome) + "</strong><small>" + BRL(x.p.preco) + " cada</small></div>" +
       '<div class="qty"><button onclick="Nexo.cartQty(\'' + x.p.id + "',-1)\">−</button><strong>" + x.qtd + "</strong>" + '<button onclick="Nexo.cartQty(\'' + x.p.id + "',1)\">+</button></div>" +
       '<button class="fav" onclick="Nexo.cartDel(\'' + x.p.id + "')\" aria-label=\"Remover\">✕</button></div>";
@@ -1165,6 +1141,22 @@ function contaHTML() {
   var u = me();
   return "<div class='panel'><h3>Conta</h3><p class='muted' style='margin:0 0 .7rem'>Logado como <strong>" + esc(u.email) + "</strong> (" + esc(tipoLabel(u.tipo)) + ").</p><div class='row'><button class='btn btn-secondary btn-sm' onclick='Nexo.logout()'>Sair</button><button class='btn btn-secondary btn-sm' onclick='Nexo.resetDemo()'>Restaurar demo</button></div></div>";
 }
+function photoPreviewHTML(u) {
+  var capa = PHOTO_TMP.capa || u.capaFoto, logo = PHOTO_TMP.logo || u.logoFoto, h = "";
+  if (capa) h += '<span class="badge">Capa ✓ <button class="link" onclick="Nexo.photoDel(\'capa\')">remover</button></span>';
+  if (logo) h += '<span class="badge">Logo ✓ <button class="link" onclick="Nexo.photoDel(\'logo\')">remover</button></span>';
+  return h;
+}
+function paintPhotoPrev() {
+  var pv = $("#stPhotoPrev"); if (!pv) return;
+  pv.innerHTML = photoPreviewHTML(me());
+}
+function stagePhoto(file, max, kind) {
+  if (!file) return;
+  NexoStore.readPhoto(file, max).then(function (url) {
+    PHOTO_TMP[kind] = url; paintPhotoPrev(); toast("Foto pronta! Salve para aplicar.");
+  }).catch(function () { toast("Use JPG/PNG de até 5MB."); });
+}
 function capaPicker(cur) {
   var gs = ["g0", "g1", "g2", "g3", "g4", "g5"];
   return '<div class="swatches">' + gs.map(function (g) {
@@ -1173,6 +1165,7 @@ function capaPicker(cur) {
 }
 function vPerfilApp() {
   var u = me(), r = ratingOf(u.id);
+  PHOTO_TMP = {};
   if (isProv(u) || isLoja(u)) {
     var shopAddr = isLoja(u) ? '<div class="grid2"><label class="field"><span>Endereço *</span><input id="stEnd" value="' + esc(u.endereco || "") + '" placeholder="Rua, número — bairro"></label><label class="field"><span>Categoria da loja</span><select id="stCatLoja">' + SHOP_CATS.map(function (c) { return '<option value="' + c.id + '"' + ((u.categoriaLoja || "Outros") === c.id ? " selected" : "") + ">" + esc(c.name) + "</option>"; }).join("") + "</select></label></div>" : "";
     var especLabel = isLoja(u) ? "O que você vende (separado por vírgula)" : "Especialidades (separadas por vírgula)";
@@ -1182,6 +1175,9 @@ function vPerfilApp() {
       '<div class="grid2"><label class="field"><span>Nome da loja *</span><input id="stNome" value="' + esc(u.nome) + '"></label>' +
       '<label class="field"><span>Cidade *</span><input id="stCity" value="' + esc(u.cidade || "") + '"></label></div>' + shopAddr +
       '<div class="field"><span>Capa da loja</span>' + capaPicker(u.capa || "g0") + "</div>" +
+      '<div class="grid2"><label class="field"><span>Foto de capa</span><input id="stCapaFoto" type="file" accept="image/*"><small class="muted">JPG/PNG até 5MB.</small></label>' +
+      '<label class="field"><span>Logo / foto</span><input id="stLogoFoto" type="file" accept="image/*"><small class="muted">No lugar das iniciais.</small></label></div>' +
+      '<div class="row" id="stPhotoPrev">' + photoPreviewHTML(u) + "</div>" +
       '<label class="field"><span>Sobre a loja</span><textarea id="stDesc" class="input" rows="3">' + esc(u.descricao || "") + "</textarea></label>" +
       '<div class="grid2"><label class="field"><span>' + especLabel + '</span><input id="stEspec" value="' + esc((u.especialidades || []).join(", ")) + '"></label>' +
       '<label class="field"><span>Experiência</span><input id="stExp" value="' + esc(u.experiencia || "") + '"></label></div>' +
@@ -1222,12 +1218,19 @@ function vPerfilApp() {
       u.raio = raio; u.precoBase = preco;
       u.instagram = ig; u.facebook = fb;
       u.portfolio = $("#stPort").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      if (PHOTO_TMP.capa) u.capaFoto = PHOTO_TMP.capa;
+      if (PHOTO_TMP.logo) u.logoFoto = PHOTO_TMP.logo;
+      PHOTO_TMP = {};
       save(); paintChrome(); toast("Loja atualizada! ✅");
       refresh();
     });
+    var cf = $("#stCapaFoto");
+    if (cf) cf.addEventListener("change", function () { stagePhoto(cf.files[0], 1200, "capa"); });
+    var lf2 = $("#stLogoFoto");
+    if (lf2) lf2.addEventListener("change", function () { stagePhoto(lf2.files[0], 400, "logo"); });
     return;
   }
-  $("#appContent").innerHTML = "<h2>Meu perfil</h2><div class='panel'><div class='row'><span class='pro-avatar' style='background:" + u.cor + "'>" + esc(initials(u.nome)) + "</span>" +
+  $("#appContent").innerHTML = "<h2>Meu perfil</h2><div class='panel'><div class='row'><span class='pro-avatar" + photoCls(u.logoFoto) + "' style='background:" + u.cor + "'>" + esc(initials(u.nome)) + photoImg(u.logoFoto) + "</span>" +
     "<div><strong>" + esc(u.nome) + "</strong><br><span class='muted' style='font-size:.85rem'>" + esc(tipoLabel(u.tipo)) + " · " + starsHTML(r.m, r.t) + " · " + jobsOf(u) + " serviços</span></div></div>" +
     '<form id="frmMe" style="margin-top:1rem"><div class="grid2"><label class="field"><span>Nome / Razão social *</span><input id="meNome" value="' + esc(u.nome) + '"></label><label class="field"><span>Telefone</span><input id="meTel" value="' + esc(u.telefone || "") + '"></label></div>' +
     '<div class="grid2"><label class="field"><span>Cidade *</span><input id="meCity" value="' + esc(u.cidade || "") + '"></label><label class="field"><span>Região / Bairro</span><input id="meReg" value="' + esc(u.regiao || "") + '"></label></div>' +
@@ -1276,7 +1279,6 @@ function renderApp(sub, param) {
   else if (name === "solicitacoes") vReqList(true);
   else if (name === "oportunidades") vReqList(false);
   else if (name === "solicitacao") vReqDetail(id);
-  else if (name === "nova") vNova();
   else if (name === "agenda") vAgenda();
   else if (name === "mensagens") vMsgs();
   else if (name === "favoritos") vFav();
@@ -1339,7 +1341,7 @@ window.Nexo = {
       "<p>" + esc(s.desc) + "</p><h3>Quem oferece (" + provs.length + ")</h3>" +
       provs.map(function (p) {
         var pr = ratingOf(p.id);
-        return '<div class="row"><span class="pro-avatar" style="background:' + p.cor + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(p.nome)) + "</span><div style='flex:1'><strong>" + esc(p.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(pr.m, pr.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + p.id + "'>Ver perfil</a></div>";
+        return '<div class="row"><span class="pro-avatar' + photoCls(p.logoFoto) + '" style="background:' + p.cor + ';width:40px;height:40px;font-size:.8rem">' + esc(initials(p.nome)) + photoImg(p.logoFoto) + "</span><div style='flex:1'><strong>" + esc(p.nome) + "</strong><br><span class='muted' style='font-size:.82rem'>" + starsHTML(pr.m, pr.t) + "</span></div><a class='btn btn-secondary btn-sm' href='#/perfil/" + p.id + "'>Ver perfil</a></div>";
       }).join("") +
       '<div class="row"><button class="btn btn-primary btn-block" onclick="Nexo.askService(\'' + s.id + "')\">Pedir este serviço</button></div>");
   },
@@ -1525,9 +1527,14 @@ window.Nexo = {
       if (!ua.menuCats) ua.menuCats = [];
       if (ua.menuCats.indexOf(catA) < 0) ua.menuCats.push(catA);
       if (!db.products) db.products = [];
-      db.products.push({ id: NexoStore.uid("pd"), lojaId: me().id, nome: nome, preco: preco, desc: $("#pdDesc").value.trim(), cat: catA, criadoEm: new Date().toISOString() });
-      save(); closeModal(); toast("Produto adicionado! 🏷");
-      vProdutos();
+      var fileA = $("#pdFoto").files[0];
+      function commitA(url) {
+        db.products.push({ id: NexoStore.uid("pd"), lojaId: me().id, nome: nome, preco: preco, desc: $("#pdDesc").value.trim(), cat: catA, foto: url, criadoEm: new Date().toISOString() });
+        save(); closeModal(); toast("Produto adicionado! 🏷");
+        vProdutos();
+      }
+      if (fileA) NexoStore.readPhoto(fileA, 600).then(commitA).catch(function () { setErr("pdErr", "Use JPG/PNG de até 5MB."); });
+      else commitA(null);
     });
   },
   prodEdit: function (id) {
@@ -1544,8 +1551,14 @@ window.Nexo = {
       if (!ue.menuCats) ue.menuCats = [];
       if (ue.menuCats.indexOf(catE) < 0) ue.menuCats.push(catE);
       p.nome = nome; p.preco = preco; p.desc = $("#pdDesc").value.trim(); p.cat = catE;
-      save(); closeModal(); toast("Produto atualizado!");
-      vProdutos();
+      var fileE = $("#pdFoto").files[0];
+      function commitE(url) {
+        if (url) p.foto = url;
+        save(); closeModal(); toast("Produto atualizado!");
+        vProdutos();
+      }
+      if (fileE) NexoStore.readPhoto(fileE, 600).then(commitE).catch(function () { setErr("pdErr", "Use JPG/PNG de até 5MB."); });
+      else commitE(null);
     });
   },
   prodDel: function (id) {
@@ -1618,6 +1631,12 @@ window.Nexo = {
     db.cart.items = (db.cart.items || []).filter(function (x) { return x.prodId !== prodId; });
     save(); paintCartBadge(); renderCarrinho();
   },
+  photoDel: function (kind) {
+    delete PHOTO_TMP[kind];
+    var u = me(); if (!u) return;
+    if (kind === "capa") u.capaFoto = null; else u.logoFoto = null;
+    save(); paintPhotoPrev(); paintChrome(); toast("Foto removida.");
+  },
   cartClear: function () {
     db.cart = { items: [] };
     save(); paintCartBadge(); renderCarrinho();
@@ -1689,20 +1708,6 @@ window.Nexo = {
     shopProducts(u.id).forEach(function (p) { if ((p.cat || "Geral") === old) p.cat = "Geral"; });
     if (!u.menuCats.length) u.menuCats = ["Geral"];
     save(); toast("Categoria apagada."); refresh();
-  },
-  demoProposal: function () {
-    var r = reqById("r1"), props = proposalsOf("r1");
-    if (!r) return;
-    if (me()) { location.hash = "#/app/solicitacao/r1"; return; }
-    openModal("Exemplo real: " + r.titulo,
-      '<p class="muted" style="margin:0">📍 ' + esc(r.local) + " · 🗓 " + esc(r.prazo) + " · 💰 Orçamento aberto</p>" +
-      props.map(function (p) {
-        var pr = userById(p.prestId) || {}, rt = ratingOf(p.prestId);
-        return '<div class="req-item"><div class="req-item-top"><span class="pro-avatar" style="background:' + pr.cor + ';width:38px;height:38px;font-size:.75rem">' + esc(initials(pr.nome)) + "</span><div><strong>" + esc(pr.nome) + "</strong><br><span class='muted' style='font-size:.8rem'>" + starsHTML(rt.m, rt.t) + "</span></div>" +
-          '<div style="margin-left:auto;text-align:right"><strong>' + BRL(p.valor) + "</strong><br><span class='muted' style='font-size:.8rem'>" + fdate(p.dataDisp) + "</span></div></div>" +
-          '<p class="muted" style="margin:0;font-size:.88rem">' + esc(p.msg) + "</p></div>";
-      }).join("") +
-      '<a class="btn btn-primary btn-block" href="#/cadastro">Criar conta para aceitar propostas</a>');
   }
 };
 
@@ -1775,7 +1780,6 @@ function bindChrome() {
       if (msg.indexOf("Link de recuperação") === 0) { e.preventDefault(); openRecover(); return; }
       toast(msg); return;
     }
-    if (t.closest("[data-demo-proposal]")) { e.preventDefault(); Nexo.demoProposal(); return; }
     if (t.closest("#bellBtn")) { renderPop(); return; }
     if (t.closest("#modalClose")) { closeModal(); return; }
     var rt = t.closest("[data-route]");
@@ -1814,13 +1818,6 @@ function bindChrome() {
     $("#" + id).addEventListener("change", applySearch);
     $("#" + id).addEventListener("input", applySearch);
   });
-  $all("[data-sort]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      F.sort = b.getAttribute("data-sort");
-      $all("[data-sort]").forEach(function (x) { x.classList.toggle("active", x === b); });
-      applySearch();
-    });
-  });
   $all("[data-tipo]").forEach(function (b) {
     b.addEventListener("click", function () {
       FTIPO = b.getAttribute("data-tipo") || "todos";
@@ -1829,11 +1826,10 @@ function bindChrome() {
     });
   });
   function clearF() {
-    F = { q: "", cats: {}, loc: "Vila Aurora", dist: 50, rating: 0, price: "", date: "", avail: false, sort: F.sort };
+    F = { q: "", loc: "Vila Aurora", dist: 50, rating: 0, price: "", date: "", avail: false };
     $("#fQ").value = ""; $("#fLoc").value = "Vila Aurora";
     $("#fDist").value = 50; $("#fRating").value = "0"; $("#fPrice").value = ""; $("#fDate").value = "";
     $("#fAvail").checked = false;
-    $all("#fCats input").forEach(function (c) { c.checked = false; });
     applySearch();
   }
   $("#clearFilters").addEventListener("click", clearF);

@@ -36,6 +36,8 @@
   var CAPAS = ["g0", "g1", "g2", "g3", "g4", "g5"];
   function storeDefaults(u, i) {
     if (!u || u.tipo === "empresa" || u.tipo === "cliente") return u;
+    if (u.capaFoto == null) u.capaFoto = null;
+    if (u.logoFoto == null) u.logoFoto = null;
     if (u.disponibilidade == null) u.disponibilidade = "semana";
     if (u.capa == null) u.capa = CAPAS[(i || 0) % CAPAS.length];
     if (u.horario == null) u.horario = "Seg–Sáb · 08h–18h";
@@ -54,7 +56,9 @@
      v10 -> restaura categorias do seed em produtos sem cat;
      v11 -> restaura também sobre "Geral" e re-deriva o menu;
      v12 -> conta demo de pessoa física (cliente);
-     v13 -> pedido dirigido (request.prestId; null = legado aberto). Nunca apaga dados locais. */
+     v13 -> pedido dirigido (request.prestId; null = legado aberto);
+     v14 -> fotos do dono (user.capaFoto/logoFoto, product.foto; null = gradiente);
+     v15 -> fotos demo Unsplash onde o dono não subiu nada. Nunca apaga dados locais. */
   function migrate(db) {
     db.users.forEach(function (u, i) { if (u.tipo !== "empresa" && u.tipo !== "cliente") storeDefaults(u, i); });
     if (!db.products) db.products = [];
@@ -79,7 +83,7 @@
       var exists = db.products.some(function (x) { return x.id === sp.id; });
       if (!exists) db.products.push(JSON.parse(JSON.stringify(sp)));
     });
-    db.products.forEach(function (p) { if (!p.cat || p.cat === "Geral") p.cat = seedCat[p.id] || "Geral"; });
+    db.products.forEach(function (p) { if (!p.cat || p.cat === "Geral") p.cat = seedCat[p.id] || "Geral"; if (p.foto == null) p.foto = null; });
     db.users.forEach(function (u) {
       var onlyGeral = u.tipo === "loja" && u.menuCats && u.menuCats.length === 1 && u.menuCats[0] === "Geral";
       var hadCats = u.tipo === "loja" && u.menuCats && u.menuCats.length && !onlyGeral;
@@ -106,12 +110,16 @@
     if (!db.users.some(function (x) { return x.id === cli.id; })) db.users.push(JSON.parse(JSON.stringify(cli)));
     /* Pedido dirigido em bases antigas (null = legado aberto). */
     db.requests.forEach(function (r) { if (!("prestId" in r)) r.prestId = null; });
-    db.v = 13;
+    /* Fotos demo onde o dono ainda não subiu nada (nunca sobrescreve). */
+    applySeedPhotos(db, true);
+    db.v = 15;
     return db;
   }
   /* Campos exclusivos do mini-site da loja (tipo "loja"). */
   function shopDefaults(u) {
     if (!u || u.tipo !== "loja") return u;
+    if (u.capaFoto == null) u.capaFoto = null;
+    if (u.logoFoto == null) u.logoFoto = null;
     if (u.endereco == null) u.endereco = "";
     if (u.categoriaLoja == null) u.categoriaLoja = "Outros";
     if (u.menuCats == null) u.menuCats = ["Geral"];
@@ -137,6 +145,58 @@
      Usada pelo seed e pela migração para importar em bases antigas. */
   function seedCliente(PASS) {
     return { id: "u_cli_maria", tipo: "cliente", nome: "Maria Silva", email: "cliente@demo.com", senha: PASS, doc: "987.654.321-00", cidade: "Vila Aurora", telefone: "(51) 99900-1122", descricao: "Cliente da Nexo — compras nas lojas e contratação de serviços.", cor: "#0F766E", verificado: false, jobs: 0, dist: 1.5 };
+  }
+  /* Fotos demo (Unsplash, uso livre). Todas as URLs foram verificadas
+     (HTTP 200 + imagem); se alguma falhar no futuro, o render cai no
+     gradiente via onerror. `onlyNull` nunca sobrescreve upload do dono. */
+  function photoU(id) { return "https://images.unsplash.com/photo-" + id + "?auto=format&fit=crop&w=1200&q=70"; }
+  function photoS(id) { return "https://images.unsplash.com/photo-" + id + "?auto=format&fit=crop&w=500&q=70"; }
+  function photoMap() {
+    return {
+      users: {
+        "u_loja_veste": { capa: photoU("1441986300917-64674bd600d8"), logo: photoS("1445205170230-053b83016050") },
+        "u_loja_pet": { capa: photoU("1450778869180-41d0601e046e"), logo: photoS("1587300003388-59208cc962cb") },
+        "u_loja_essencia": { capa: photoU("1596462502278-27bfdc403348"), logo: photoS("1571781926291-c477ebfd024b") },
+        "u_pre_eletrosul": { capa: photoU("1621905251189-08b45d6a269e"), logo: photoS("1621905252507-b35492cc74b4") },
+        "u_pre_limpa": { capa: photoU("1581578731548-c64695cc6952"), logo: photoS("1584820927498-cfe5211fd8bf") },
+        "u_pre_vetor": { capa: photoU("1486406146926-c627a92ad1ab"), logo: photoS("1557324232-b8917d3c3dcb") },
+        "u_pre_techsul": { capa: photoU("1504328345606-18bbc8c9d7d1"), logo: photoS("1581094794329-c8112a89af12") },
+        "u_pre_climasul": { capa: photoU("1614633833026-0820552978b6"), logo: photoS("1615875605825-5eb9bb5d52ac") },
+        "u_aut_carlos": { capa: photoU("1558494949-ef010cbdcc31"), logo: photoS("1518770660439-4636190af475") },
+        "u_aut_joao": { capa: photoU("1563013544-824ae1b704d3"), logo: photoS("1550751827-4bd374c3f58b") },
+        "u_aut_marina": { capa: photoU("1615874959474-d609969a20ed"), logo: photoS("1615873968403-89e068629265") },
+        "u_aut_hidro": { capa: photoU("1607472586893-edb57bdc0e39"), logo: photoS("1585704032915-c3400ca199e7") },
+        "u_aut_ana": { capa: photoU("1562259949-e8e7689d7828"), logo: photoS("1589939705384-5185137a7f0f") },
+        "u_aut_rafael": { capa: photoU("1616486338812-3dadae4b4ace"), logo: photoS("1504148455328-c376907d081c") },
+        "u_aut_ju": { capa: photoU("1471341971476-ae15ff5dd4ea"), logo: photoS("1516035069371-29a1b244cc32") },
+        "u_aut_marcos": { capa: photoU("1541888946425-d81bb19240f5"), logo: photoS("1504307651254-35680f356dfd") },
+        "u_aut_fernanda": { capa: photoU("1416879595882-3373a0480b5b"), logo: photoS("1466692476868-aef1dfb1e735") },
+        "u_aut_lucas": { capa: photoU("1558402529-d2638a7023e9"), logo: photoS("1513828583688-c52646db42da") }
+      },
+      products: {
+        "pd1": photoS("1595777457583-95e059d581b8"), "pd2": photoS("1521572163474-6864f9cf17ab"),
+        "pd3": photoS("1542272604-787c3835535d"), "pd4": photoS("1591047139829-d91aecb6caea"),
+        "pd5": photoS("1594633312681-425c7b97ccd1"), "pd6": photoS("1519238263530-99bdd11df2ea"),
+        "pd7": photoS("1517849845537-4d257902454a"), "pd8": photoS("1548199973-03cce0bbc87b"),
+        "pd9": photoS("1516734212186-a967f81ad0d7"), "pd10": photoS("1589924691995-400dc9ecc119"),
+        "pd11": photoS("1530281700549-e82e7bf110d6"), "pd12": photoS("1608571423902-eed4a5ad8108"),
+        "pd13": photoS("1584308666744-24d5c474f2ae"), "pd14": photoS("1544787219-7f47ccb76574"),
+        "pd15": photoS("1600857544200-b2f666a9a2ec")
+      }
+    };
+  }
+  function applySeedPhotos(db, onlyNull) {
+    var m = photoMap();
+    db.users.forEach(function (u) {
+      var f = m.users[u.id]; if (!f) return;
+      if (f.capa && (!onlyNull || u.capaFoto == null)) u.capaFoto = f.capa;
+      if (f.logo && (!onlyNull || u.logoFoto == null)) u.logoFoto = f.logo;
+    });
+    db.products.forEach(function (p) {
+      var f = m.products[p.id]; if (!f) return;
+      if (!onlyNull || p.foto == null) p.foto = f;
+    });
+    return db;
   }
   /* Lojas demo completas (vitrine + catálogo). Usado pelo seed e pela
      migração para importar lojas que faltam em bases antigas. */
@@ -253,6 +313,7 @@
 
     /* --- catálogo das lojas demo (mini-sites) --- */
     var products = _sh.products;
+    products.forEach(function (p) { if (p.foto == null) p.foto = null; });
 
     /* --- solicitações: 10 (cobrindo todo o fluxo de status) --- */
     var requests = [
@@ -346,13 +407,42 @@
       { userId: "u_emp_prisma", tipo: "servico", refId: "s2" }
     ];
 
-    return {
-      v: 13, users: users, services: services, requests: requests,
+    var out = {
+      v: 15, users: users, services: services, requests: requests,
       proposals: proposals, schedules: schedules, reviews: reviews,
       convs: convs, msgs: msgs, notifs: notifs, favs: favs, products: products,
       cart: { items: [] }, orders: [],
       session: null, seededAt: new Date().toISOString()
     };
+    return applySeedPhotos(out, false);
+  }
+
+  /* Foto do dono: lê o arquivo, comprime via canvas e devolve data-URL JPEG.
+     Sem isso o base64 estouraria o localStorage. Rejeita não-imagem e >5MB. */
+  function readPhoto(file, maxDim) {
+    return new Promise(function (resolve, reject) {
+      if (!file || !/^image\//.test(file.type || "")) return reject(new Error("tipo"));
+      if (file.size > 5 * 1024 * 1024) return reject(new Error("tamanho"));
+      var rd = new FileReader();
+      rd.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            var s = Math.min(1, (maxDim || 1200) / Math.max(w, h));
+            var cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
+            var cv = document.createElement("canvas");
+            cv.width = cw; cv.height = ch;
+            cv.getContext("2d").drawImage(img, 0, 0, cw, ch);
+            resolve(cv.toDataURL("image/jpeg", 0.82));
+          } catch (e) { reject(e); }
+        };
+        img.onerror = function () { reject(new Error("leitura")); };
+        img.src = rd.result;
+      };
+      rd.onerror = function () { reject(new Error("leitura")); };
+      rd.readAsDataURL(file);
+    });
   }
 
   /* ---------------- API ---------------- */
@@ -363,8 +453,8 @@
         if (!raw) { var d = seed(); localStorage.setItem(KEY, JSON.stringify(d)); return d; }
         var db = JSON.parse(raw);
         if (!db || !db.users) { var d2 = seed(); localStorage.setItem(KEY, JSON.stringify(d2)); return d2; }
-        if (db.v >= 1 && db.v <= 12) { db = migrate(db); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (_) {} return db; }
-        if (db.v !== 13) { var d3 = seed(); localStorage.setItem(KEY, JSON.stringify(d3)); return d3; }
+        if (db.v >= 1 && db.v <= 14) { db = migrate(db); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (_) {} return db; }
+        if (db.v !== 15) { var d3 = seed(); localStorage.setItem(KEY, JSON.stringify(d3)); return d3; }
         if (!db.products) db.products = [];
         if (!db.cart) db.cart = { items: [] };
         if (!db.cart.items) db.cart.items = [];
@@ -382,7 +472,8 @@
       return this.load();
     },
     uid: uid,
-    dayPlus: dayPlus
+    dayPlus: dayPlus,
+    readPhoto: readPhoto
   };
 
   global.NexoStore = NexoStore;
