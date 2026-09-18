@@ -724,8 +724,16 @@ function agItemHTML(a) {
 
 /* ----- dashboard ----- */
 function actCardHTML(a) {
-  return '<a class="act-card" href="' + a.h + '"><span class="act-ic">' + a.icon + "</span><span style='flex:1;min-width:0'><strong>" + a.label + "</strong>" +
+  return '<a class="act-card" href="' + a.h + '"><span class="act-ic ' + (a.t || "") + '">' + a.icon + "</span><span style='flex:1;min-width:0'><strong>" + a.label + "</strong>" +
     (a.n ? '</span><span class="count">' + a.n + "</span>" : "</span>") + "<span aria-hidden='true'>→</span></a>";
+}
+function dashHeadHTML(u, bits, showRating) {
+  var pr = ratingOf(u.id);
+  return '<div class="dash-head"><span class="pro-avatar dash-ava' + photoCls(u.logoFoto) + '" style="background:' + u.cor + '">' + esc(initials(u.nome)) + photoImg(u.logoFoto) + "</span>" +
+    "<div style='flex:1;min-width:0'><h2 style='margin:0'>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2>" +
+    '<div class="row" style="gap:.4rem;margin-top:.35rem"><span class="badge">' + esc(tipoLabel(u.tipo)) + "</span>" +
+    (bits.length ? '<span class="badge info">' + esc(bits.join(" · ")) + "</span>" : '<span class="badge ok">Tudo em dia 🎉</span>') +
+    ((showRating && pr.t) ? '<span class="badge">★ ' + pr.m.toFixed(1).replace(".", ",") + " (" + pr.t + ")</span>" : "") + "</div></div></div>";
 }
 function vDashboard() {
   var u = me(), el = $("#appContent");
@@ -744,14 +752,14 @@ function vDashboard() {
     var shopPanel = isLoja(u) ? '<div class="panel"><h3>🏪 Minha loja</h3><div class="store-list">' + storeCard(u) + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/perfil/' + u.id + '">Ver vitrine</a><a class="btn btn-secondary btn-sm" href="#/app/produtos">Meus produtos (' + shopProducts(u.id).length + ')</a><a class="btn btn-primary btn-sm" href="#/app/perfil">Editar loja</a></div></div>' : "";
     var recvAll = isLoja(u) ? (db.orders || []).filter(function (o) { return o.lojaId === u.id; }).sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); }) : [];
     var recvPanel = isLoja(u) ? '<div class="panel"><h3>🧾 Últimos pedidos</h3>' + (recvAll.length ? recvAll.slice(0, 3).map(function (o) { return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line-soft);padding:.45rem 0"><span style="font-size:.88rem"><strong>' + esc(o.buyer.nome) + "</strong> · " + BRL(o.total) + "</span>" + orderBadge(o.status) + "</div>"; }).join("") + '<div class="row" style="margin-top:.5rem"><a class="btn btn-secondary btn-sm" href="#/app/pedidos">Ver todos →</a></div>' : "<p class='muted'>Nenhum pedido ainda.</p>") + "</div>" : "";
-    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>" + (bits.length ? esc(bits.join(" · ")) + "." : "Tudo em dia 🎉") + "</p>" +
+    el.innerHTML = dashHeadHTML(u, bits, false) +
       '<div class="act-grid">' + [
-        { h: "#/explorar", icon: "＋", label: "Pedir serviço", n: null },
-        { h: "#/app/solicitacoes", icon: "📋", label: "Meus pedidos", n: open.length || null },
-        { h: "#/app/agenda", icon: "📅", label: "Agenda", n: next.length || null },
-        { h: "#/app/mensagens", icon: "💬", label: "Chat", n: unread || null }
+        { h: "#/explorar", icon: "＋", label: "Pedir serviço", n: null, t: "t-blue" },
+        { h: "#/app/solicitacoes", icon: "📋", label: "Meus pedidos", n: open.length || null, t: "t-amber" },
+        { h: "#/app/agenda", icon: "📅", label: "Agenda", n: next.length || null, t: "t-violet" },
+        { h: "#/app/mensagens", icon: "💬", label: "Chat", n: unread || null, t: "t-green" }
       ].map(actCardHTML).join("") + "</div>" +
-      (attention ? '<div class="panel"><h3>⚠️ Atenção</h3><div class="req-list">' + attention + "</div></div>" : "") +
+      (attention ? '<div class="panel attention"><h3>⚠️ Atenção</h3><div class="req-list">' + attention + "</div></div>" : "") +
       '<div class="dash-grid"><div><div class="panel"><h3>Próximos serviços</h3>' + (next.slice(0, 3).map(agItemHTML).join("") || "<p class='muted'>Nada agendado. <a class='link' href='#/explorar'>Buscar prestadores →</a></p>") + '</div>' +
       '<div class="panel"><h3>Meus pedidos</h3><div class="req-list">' + (my.slice(0, 4).map(reqItemHTML).join("") || "<p class='muted'>Nenhum pedido ainda. Busque uma empresa e peça o serviço.</p>") + '</div><div class="row" style="margin-top:.7rem"><a class="btn btn-secondary btn-sm" href="#/app/solicitacoes">Ver todos</a><a class="btn btn-primary btn-sm" href="#/explorar">Buscar prestador</a></div></div></div>' +
       '<div>' + shopPanel + recvPanel + "</div></div>";
@@ -763,15 +771,14 @@ function vDashboard() {
     var bits2 = [];
     if (pend.length) bits2.push(pend.length + " aguardando sua confirmação");
     if (sched.length) bits2.push(sched.length + " agendado(s)");
-    var rt = ratingOf(u.id);
-    el.innerHTML = "<h2>Olá, " + esc(u.nome.split(" ")[0]) + " 👋</h2><p class='muted'>" + (bits2.length ? esc(bits2.join(" · ")) + "." : "Nenhuma pendência. " + starsHTML(rt.m, rt.t)) + "</p>" +
+    el.innerHTML = dashHeadHTML(u, bits2, true) +
       '<div class="act-grid">' + [
-        { h: "#/app/oportunidades", icon: "⏳", label: "Confirmar", n: pend.length || null },
-        { h: "#/app/agenda", icon: "📅", label: "Agenda", n: sched.length || null },
-        { h: "#/app/servicos", icon: "🛠", label: "Meus serviços", n: mySvcs.length || null },
-        { h: "#/app/mensagens", icon: "💬", label: "Chat", n: unread2 || null }
+        { h: "#/app/oportunidades", icon: "⏳", label: "Confirmar", n: pend.length || null, t: "t-amber" },
+        { h: "#/app/agenda", icon: "📅", label: "Agenda", n: sched.length || null, t: "t-violet" },
+        { h: "#/app/servicos", icon: "🛠", label: "Meus serviços", n: mySvcs.length || null, t: "t-blue" },
+        { h: "#/app/mensagens", icon: "💬", label: "Chat", n: unread2 || null, t: "t-green" }
       ].map(actCardHTML).join("") + "</div>" +
-      (pend.length ? '<div class="panel"><h3>⏳ Aguardando sua confirmação</h3><div class="req-list">' + pend.slice(0, 3).map(reqItemHTML).join("") + '</div><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver todas →</a></div>' : "") +
+      (pend.length ? '<div class="panel attention"><h3>⏳ Aguardando sua confirmação</h3><div class="req-list">' + pend.slice(0, 3).map(reqItemHTML).join("") + '</div><a class="btn btn-secondary btn-sm" href="#/app/oportunidades">Ver todas →</a></div>' : "") +
       '<div class="panel"><h3>Serviços agendados</h3>' + (sched.slice(0, 3).map(agItemHTML).join("") || "<p class='muted'>Nada agendado.</p>") + "</div>";
   }
 }
